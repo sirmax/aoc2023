@@ -1,0 +1,10 @@
+.*
+!.gitignore
+*.iml
+*.patch
+*.retry
+target
+
+# AoC specific
+**/resources/**/Day*.txt
+!**/resources/**/Day*.sample*.txt
