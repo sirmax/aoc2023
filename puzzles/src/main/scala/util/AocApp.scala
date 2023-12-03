@@ -14,7 +14,7 @@ abstract class AocApp(year: Int, day: Int) extends App {
     maybeConfig match
       case Some(config) => {
         val fullInputName = s"$year/Day$day.${config.inputName}.txt"
-        val input         = await(IOs(parseInputStream(this.getClass.getResourceAsStream(fullInputName))))
+        val input         = await(IOs(parseInput(io.Source.fromResource(fullInputName).mkString)))
         if (config.parts(AocApp.Part.Part1)) {
           await(Consoles.println(s"Part 1: ${part1(input)}"))
         }
@@ -27,11 +27,7 @@ abstract class AocApp(year: Int, day: Int) extends App {
 
   type Input
 
-  def parseInputStream(is: java.io.InputStream): Input = {
-    parseInput(io.Source.fromInputStream(is, "UTF-8"))
-  }
-
-  def parseInput(s: io.Source): Input
+  def parseInput(s: String): Input
   def part1(input: Input): String > Effects
   def part2(input: Input): String > Effects
 

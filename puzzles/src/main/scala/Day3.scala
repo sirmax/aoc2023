@@ -1,9 +1,6 @@
 import kyo.>
 import kyo.App.Effects
 
-import java.io.InputStream
-import scala.io.Source
-
 object Day3 extends util.AocApp(2023, 3) {
   case class Num(value: Int, length: Int)
   opaque type Sym = Char
@@ -21,9 +18,7 @@ object Day3 extends util.AocApp(2023, 3) {
     }
   }
 
-  def parseInput(s: Source): Input = ???
-
-  override def parseInputStream(is: InputStream): Input = {
+  def parseInput(s: String): Input = {
 
     import fastparse.*
 
@@ -39,7 +34,7 @@ object Day3 extends util.AocApp(2023, 3) {
     def line[$: P] = lineStart.flatMap(ls => entry(ls).rep)
     def input[$: P] = line.rep.map(x => Input(lines = x.toVector))
 
-    val result = parse(is, input)
+    val result = parse(s, input)
     result.get.value
   }
 

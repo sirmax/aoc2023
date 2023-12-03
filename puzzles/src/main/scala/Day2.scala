@@ -1,12 +1,10 @@
 import kyo.>
 import kyo.App.Effects
 
-import scala.io.Source
-
 object Day2 extends util.AocApp(2023, 2) {
   case class Input(games: List[Game])
 
-  def parseInput(s: Source): Input = {
+  def parseInput(s: String): Input = {
     import fastparse._, NoWhitespace._
     def digit[$: P] = CharIn("0-9")
     def int[$: P]: P[Int] = P(digit.rep(min = 1).!.map(_.toInt))
@@ -20,7 +18,7 @@ object Day2 extends util.AocApp(2023, 2) {
 
     def game[$: P] = P("Game " ~ int ~ ": " ~ gameRound.rep(sep = "; ")).map(Game.apply)
 
-    Input(games = s.getLines().map(fastparse.parse(_, game).get.value).toList)
+    Input(games = s.linesIterator.map(fastparse.parse(_, game).get.value).toList)
   }
 
   case class Game(n: Int, rounds: Seq[Map[Color, Int]])

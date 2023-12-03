@@ -2,12 +2,10 @@ import kyo.*
 import kyo.consoles.*
 import kyo.direct.*
 
-import scala.io.Source
-
 object Day1 extends util.AocApp(2023, 1) {
   override type Input = List[String]
 
-  def parseInput(s: Source): List[String] = s.getLines().toList
+  def parseInput(s: String): List[String] = s.linesIterator.toList
 
   def part1(input: List[String]): String = {
     val rFirst = "(\\d)".r
