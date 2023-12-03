@@ -14,7 +14,7 @@ abstract class AocApp(year: Int, day: Int) extends App {
     maybeConfig match
       case Some(config) => {
         val fullInputName = s"$year/Day$day.${config.inputName}.txt"
-        val input         = await(IOs(scala.io.Source.fromResource(fullInputName).getLines().toList))
+        val input         = await(IOs(parseInput(io.Source.fromResource(fullInputName))))
         if (config.parts(AocApp.Part.Part1)) {
           await(Consoles.println(s"Part 1: ${part1(input)}"))
         }
@@ -25,8 +25,10 @@ abstract class AocApp(year: Int, day: Int) extends App {
       case None =>
   }
 
-  def part1(input: List[String]): String > Effects
-  def part2(input: List[String]): String > Effects
+  type Input
+  def parseInput(s: io.Source): Input
+  def part1(input: Input): String > Effects
+  def part2(input: Input): String > Effects
 
   private def oParser = {
     given rPart: scopt.Read[AocApp.Part] = scopt.Read.reads(s => AocApp.Part.valueOf(s"Part$s"))
