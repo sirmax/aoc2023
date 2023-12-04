@@ -6,5 +6,5 @@
 target
 
 # AoC specific
-**/resources/**/Day*.txt
-!**/resources/**/Day*.sample*.txt
+/inputs/**/Day*.txt
+!/inputs/**/Day*.sample*.txt

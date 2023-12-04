@@ -7,20 +7,23 @@ import kyo.consoles.Consoles
 import kyo.direct.*
 import kyo.ios.IOs
 
+import java.nio.file.{Files, Path, Paths}
+
 abstract class AocApp(year: Int, day: Int) extends App {
   def run(args: List[String]): Unit > Effects = defer {
     val maybeConfig = await(IOs(scopt.OParser.parse(oParser, args, AocApp.Config())))
 
     maybeConfig match
-      case Some(config) => {
-        val fullInputName   = s"$year/Day$day.${config.inputName}.txt"
-        val fullAnswersName = s"$year/Day$day.${config.inputName}.answers.txt"
-        val input           = await(IOs(parseInput(io.Source.fromResource(fullInputName).mkString)))
+      case Some(config) =>
+        val inputsRoot      = config.inputsRoot.toAbsolutePath
+        val fullInputPath   = inputsRoot.resolve(s"$year/Day$day.${config.inputName}.txt")
+        val fullAnswersPath = inputsRoot.resolve(s"$year/Day$day.${config.inputName}.answers.txt")
+        val input           = await(IOs(parseInput(Files.readString(fullInputPath))))
 
         val answers = await {
-          val run = IOs(io.Source.fromResource(fullAnswersName).getLines().take(2).toList)
+          val run = IOs(Files.readString(fullAnswersPath).linesIterator.take(2).toList)
           kyo.tries.Tries
-            .handle(run) { case e: java.io.FileNotFoundException => List.empty }
+            .handle(run) { case e: java.nio.file.NoSuchFileException => List.empty }
             .map(_.padTo(2, ""))
         }
 
@@ -30,7 +33,6 @@ abstract class AocApp(year: Int, day: Int) extends App {
         if (config.parts(AocApp.Part.Part2)) {
           await(runPart(2, answers(1), input, part2))
         }
-      }
       case None =>
   }
 
@@ -62,6 +64,16 @@ abstract class AocApp(year: Int, day: Int) extends App {
         .optional()
         .text("A part to run. Can be `1`, `2`, or `1,2` together. Defaults to `1,2`")
         .action((x, c) => c.copy(parts = x.toSet)),
+      opt[java.nio.file.Path]('i', "input")
+        .optional()
+        .text(s"""A directory with input files: <input>/20XX/Day*.txt
+                 |Defaults to AOC_INPUTS environment variable or to "${AocApp.Config().inputsRoot}".
+                 |""".stripMargin)
+        .withFallback { () =>
+          sys.env.get("AOC_INPUTS").map(Paths.get(_)).getOrElse(AocApp.Config().inputsRoot)
+        }
+        .validate(x => Either.cond(Files.isDirectory(x), (), s"${x.toAbsolutePath} is not a valid directory"))
+        .action((x, c) => c.copy(inputsRoot = x)),
       arg[String]("name")
         .text("Makes the app load `DayN.<name>.txt` input file. Defaults to `main`.")
         .optional()
@@ -72,7 +84,11 @@ abstract class AocApp(year: Int, day: Int) extends App {
 }
 
 object AocApp {
-  case class Config(parts: Set[Part] = Set(Part.Part1, Part.Part2), inputName: String = "main")
+  case class Config(
+    parts: Set[Part] = Set(Part.Part1, Part.Part2),
+    inputName: String = "main",
+    inputsRoot: Path = Paths.get("inputs"),
+  )
 
   enum Part:
     case Part1, Part2

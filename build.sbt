@@ -7,6 +7,17 @@ lazy val root = project
 
 lazy val puzzles = project
   .settings(
+    // The following forking and env settings make running apps consistent between
+    // sbt and IntelliJ IDEA in bsp mode.
+    // Current bsp integration in IDEA silently overrides working directory and env vars,
+    // that were selected in the Run dialog, with baseDirectory.value and envVars.value,
+    // received from sbt. Since overriding baseDirectory is not an option due to its impact
+    // we pass the inputs root directory from the env instead, making the app agnostic to
+    // its working directory.
+    fork := true,
+    envVars := envVars.value ++ List(
+      "AOC_INPUTS" -> s"${(LocalRootProject / baseDirectory).value / "inputs"}",
+    ),
     libraryDependencies ++= List(
       "com.github.scopt" %% "scopt"           % "4.1.0",
       "com.lihaoyi"      %% "fastparse"       % "3.0.2",
