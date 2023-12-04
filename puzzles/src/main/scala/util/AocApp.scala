@@ -1,6 +1,6 @@
 package util
 
-import kyo.>
+import kyo.*
 import kyo.App
 import kyo.App.Effects
 import kyo.consoles.Consoles
@@ -13,17 +13,37 @@ abstract class AocApp(year: Int, day: Int) extends App {
 
     maybeConfig match
       case Some(config) => {
-        val fullInputName = s"$year/Day$day.${config.inputName}.txt"
-        val input         = await(IOs(parseInput(io.Source.fromResource(fullInputName).mkString)))
+        val fullInputName   = s"$year/Day$day.${config.inputName}.txt"
+        val fullAnswersName = s"$year/Day$day.${config.inputName}.answers.txt"
+        val input           = await(IOs(parseInput(io.Source.fromResource(fullInputName).mkString)))
+
+        val answers = await {
+          val run = IOs(io.Source.fromResource(fullAnswersName).getLines().take(2).toList)
+          kyo.tries.Tries
+            .handle(run) { case e: java.io.FileNotFoundException => List.empty }
+            .map(_.padTo(2, ""))
+        }
+
         if (config.parts(AocApp.Part.Part1)) {
-          await(Consoles.println(s"Part 1: ${part1(input)}"))
+          await(runPart(1, answers(0), input, part1))
         }
         if (config.parts(AocApp.Part.Part2)) {
-          await(Consoles.println(s"Part 2: ${part2(input)}"))
+          await(runPart(2, answers(1), input, part2))
         }
       }
       case None =>
   }
+
+  private def runPart[S](nPart: Int, answer: String, input: Input, run: Input => String > S): Unit > S with Consoles =
+    defer {
+      val result = await(run(input))
+      val (resultIcon, mismatchInfo) = answer match {
+        case ""       => (" ", "")
+        case `result` => ("*", "")
+        case other    => ("!", s", expected $other")
+      }
+      await(Consoles.println(s"$resultIcon Part $nPart: $result$mismatchInfo"))
+    }
 
   type Input
 
