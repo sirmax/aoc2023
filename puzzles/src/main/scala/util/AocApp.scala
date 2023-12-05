@@ -3,11 +3,13 @@ package util
 import kyo.*
 import kyo.App
 import kyo.App.Effects
+import kyo.clocks.Clocks
 import kyo.consoles.Consoles
 import kyo.direct.*
 import kyo.ios.IOs
 
 import java.nio.file.{Files, Path, Paths}
+import scala.concurrent.duration.FiniteDuration
 
 abstract class AocApp(year: Int, day: Int) extends App {
   def run(args: List[String]): Unit > Effects = defer {
@@ -18,7 +20,9 @@ abstract class AocApp(year: Int, day: Int) extends App {
         val inputsRoot      = config.inputsRoot.toAbsolutePath
         val fullInputPath   = inputsRoot.resolve(s"$year/Day$day.${config.inputName}.txt")
         val fullAnswersPath = inputsRoot.resolve(s"$year/Day$day.${config.inputName}.answers.txt")
-        val input           = await(IOs(parseInput(Files.readString(fullInputPath))))
+
+        val (input, parseTime) = await(timed(IOs(parseInput(Files.readString(fullInputPath)))))
+        await(Consoles.println(s"Parse time: ${parseTime.toMillis.toDouble / 1_000}s"))
 
         val answers = await {
           val run = IOs(Files.readString(fullAnswersPath).linesIterator.take(2).toList)
@@ -38,14 +42,24 @@ abstract class AocApp(year: Int, day: Int) extends App {
 
   private def runPart[S](nPart: Int, answer: String, input: Input, run: Input => String > S): Unit > S with Consoles =
     defer {
-      val result = await(run(input))
+      val (result, time) = await(timed(IOs(run(input))))
       val (resultIcon, mismatchInfo) = answer match {
         case ""       => (" ", "")
         case `result` => ("*", "")
         case other    => ("!", s", expected $other")
       }
-      await(Consoles.println(s"$resultIcon Part $nPart: $result$mismatchInfo"))
+      val timeSpent = s"; time spent: ${time.toMillis.toDouble / 1_000}s"
+      await(Consoles.println(s"$resultIcon Part $nPart: $result$mismatchInfo$timeSpent"))
     }
+
+  private def timed[A, S](run: A > S): (A, FiniteDuration) > (S & IOs) = defer {
+    val t0    = await(Clocks.now)
+    val a     = await(run)
+    val t1    = await(Clocks.now)
+    val dJava = java.time.Duration.between(t0, t1)
+    val d     = FiniteDuration(dJava.toNanos, scala.concurrent.duration.NANOSECONDS)
+    (a, d)
+  }
 
   type Input
 
