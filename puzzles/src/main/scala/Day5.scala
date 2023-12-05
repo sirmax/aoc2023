@@ -4,6 +4,7 @@ import kyo.*
 import kyo.App.Effects
 import kyo.tries.Tries
 
+import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 
 object Day5 extends util.AocApp(2023, 5) {
@@ -11,6 +12,9 @@ object Day5 extends util.AocApp(2023, 5) {
   case class Mapping(name: String, ranges: NonEmptyList[Range])
   case class Range(dst: Long, src: Long, length: Long) {
     override def toString: String = s"$productPrefix($src -> $dst, $length)"
+
+    def srcSpan: Span = Span(src, src + length)
+    def dstSpan: Span = Span(dst, dst + length)
   }
 
   def parseInput(s: String): Input > Tries = {
@@ -53,25 +57,53 @@ object Day5 extends util.AocApp(2023, 5) {
   }
 
   case class Span(from: Long, until: Long) {
-    def nonEmpty = from < until
-    def offset(n: Long) = Span(from + n, until + n)
+    def nonEmpty: Boolean = from < until
+
+    def length: Long = if (nonEmpty) until - from else 0
+
+    def offset(n: Long): Span = Span(from + n, until + n)
+
+    def subtract(that: Span): List[Span] = {
+      List(Span(from, Math.min(until, that.from)), Span(Math.max(that.until, from), until))
+        .filter(_.nonEmpty)
+    }
+
+    def intersect(that: Span): Option[Span] = {
+      Span(Math.max(from, that.from), Math.min(until, that.until)).some.filter(_.nonEmpty)
+    }
+
+    def union(that: Span): Option[Span] = {
+      val List(s1, s2) = List(this, that).sortBy(_.from)
+      Option.when(s1.until >= s2.from)(Span(s1.from, Math.max(s1.until, s2.until)))
+    }
+  }
+
+  object Span {
+    def merge(spans: List[Span]): List[Span] = {
+      @tailrec
+      def recur(sorted: List[Span], acc: ListBuffer[Span]): List[Span] = {
+        sorted match {
+          case s1 :: s2 :: rest =>
+            s1.union(s2) match {
+              case Some(s) => recur(s :: rest, acc)
+              case None    => recur(s2 :: rest, acc.appended(s1))
+            }
+          case s :: Nil => acc.appended(s).toList
+          case Nil      => acc.toList
+        }
+      }
+      recur(spans.sortBy(_.from), ListBuffer.empty)
+    }
   }
 
   def part2(input: Input): String > Effects = {
 
     def map(span: Span, range: Range): List[Either[Span, Span]] = {
-      val srcSpan    = Span(range.src, range.src + range.length)
-      val srcOverlap = Span(Math.max(span.from, srcSpan.from), Math.min(span.until, srcSpan.until))
+      val srcSpan = Span(range.src, range.src + range.length)
 
-      val result = if (srcOverlap.nonEmpty) {
-        val offset = range.dst - range.src
-        val unmapped = List(Span(span.from, srcOverlap.from), Span(srcOverlap.until, span.until))
-          .filter(_.nonEmpty)
-          .map(_.asLeft)
-        srcOverlap.offset(offset).asRight :: unmapped
-      } else List(span.asLeft)
-//      println(s"map range=$range, span=$span, srcSpan=$srcSpan, overlap=${srcOverlap.some.filter(_.nonEmpty)}, result=$result")
-      result
+      val mapped   = span.intersect(srcSpan).map(_.offset(range.dst - range.src))
+      val unmapped = span.subtract(srcSpan)
+      mapped.map(_.asRight) ++: unmapped.map(_.asLeft)
     }
 
     val spans = input.seeds
@@ -86,25 +118,17 @@ object Day5 extends util.AocApp(2023, 5) {
     val result = input.mappings
       .foldLeft(spans.sortBy(_.from)) { (spans, mapping) =>
 //        println(s"${mapping.name}\n  ranges=${mapping.ranges}\n   spans=$spans")
-        val (mapped, unmapped) = mapping.ranges.foldLeft((List.empty[Span], spans)) { case ((mapped, unmapped), range) =>
-          val (unmapped1, mapped1) = unmapped.flatMap(map(_, range)).partitionMap(identity)
-          (mapped ++ mapped1, unmapped1)
+        val (mapped, unmapped) = mapping.ranges.foldLeft((List.empty[Span], spans)) {
+          case ((mapped, unmapped), range) =>
+            val (unmapped1, mapped1) = unmapped.flatMap(map(_, range)).partitionMap(identity)
+            (mapped ++ mapped1, unmapped1)
         }
-        val sorted = (mapped ++ unmapped).sortBy(s => (s.from, s.until))
-        def merge(sorted: List[Span], acc: ListBuffer[Span]): List[Span] = {
-          sorted match {
-            case s1 :: s2 :: rest =>
-              if (s1.until >= s2.from) merge(Span(s1.from, Math.max(s1.until, s2.until)) :: rest, acc)
-              else merge(s2 :: rest, acc.appended(s1))
-            case s :: Nil => acc.appended(s).toList
-            case Nil      => acc.toList
-          }
-        }
-        val res = merge(sorted, ListBuffer.empty)
+        val res = Span.merge(mapped ++ unmapped)
 //        println(s"  result=$res")
         res
       }
-      .minBy(_.from).from
+      .minBy(_.from)
+      .from
     s"$result"
   }
 }
