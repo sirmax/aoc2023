@@ -1,5 +1,6 @@
 import kyo.>
 import kyo.App.Effects
+import kyo.tries.Tries
 
 object Day4 extends util.AocApp(2023, 4) {
   case class Input(cards: Seq[Card])
@@ -8,11 +9,12 @@ object Day4 extends util.AocApp(2023, 4) {
     def nMatched: Int = have.intersect(winning).size
   }
 
-  def parseInput(s: String): Input = {
+  def parseInput(s: String): Input > Tries = {
     parseInputCatsparse(s)
+//    parseInputFastparse(s)
   }
 
-  def parseInputCatsparse(s: String): Input = {
+  def parseInputCatsparse(s: String): Input > Tries = {
     import cats.parse.{Numbers => N, Parser => P, Rfc5234 => R}
     import cats.parse.Rfc5234
     import cats.syntax.all.*
@@ -26,18 +28,19 @@ object Day4 extends util.AocApp(2023, 4) {
 
     val input  = (card.repSep(P.char('\n')) <* P.char('\n').rep0).map(x => Input(x.toList))
     val result = input.parseAll(s)
-    result.fold(x => sys.error(x.toString()), identity)
+
+    result.leftMap(_.toString()).fold(Tries.fail, identity)
   }
 
-  def parseInputFastparse(s: String): Input = {
+  def parseInputFastparse(s: String): Input > Tries = {
     import fastparse.*, SingleLineWhitespace.*
 
     def int[$: P] = CharsWhileIn("0-9").!.map(_.toInt)
     def card[$: P] = P("Card" ~ int ~ ":" ~ int.rep ~ "|" ~ int.rep).map(Card.apply)
-    def input[$: P] = P(card.rep(sep = "\n")).map(Input.apply)
+    def input[$: P] = P(card.rep(sep = "\n", min = 1)).map(Input.apply)
 
     val parsed = parse(s, input)
-    parsed.get.value
+    Tries(parsed.get.value)
   }
 
   def part1(input: Input): String > Effects = {

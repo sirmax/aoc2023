@@ -49,7 +49,7 @@ abstract class AocApp(year: Int, day: Int) extends App {
 
   type Input
 
-  def parseInput(s: String): Input
+  def parseInput(s: String): Input > Effects
   def part1(input: Input): String > Effects
   def part2(input: Input): String > Effects
 

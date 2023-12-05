@@ -1,5 +1,6 @@
 import kyo.>
 import kyo.App.Effects
+import kyo.tries.Tries
 
 object Day3 extends util.AocApp(2023, 3) {
   case class Num(value: Int, length: Int)
@@ -18,7 +19,7 @@ object Day3 extends util.AocApp(2023, 3) {
     }
   }
 
-  def parseInput(s: String): Input = {
+  def parseInput(s: String): Input > Tries = {
 
     import fastparse.*
 
@@ -35,7 +36,7 @@ object Day3 extends util.AocApp(2023, 3) {
     def input[$: P] = line.rep.map(x => Input(lines = x.toVector))
 
     val result = parse(s, input)
-    result.get.value
+    Tries(result.get.value)
   }
 
   def part1(input: Input): String > Effects = {
