@@ -45,32 +45,13 @@ object Day6 extends util.AocApp(2023, 6) {
   }
 
   private def solve(r: Race) = {
-    def solveSqEq(r: Race): Option[(Double, Double) | Double] = {
-      // x -- time held button == speed
-      // x * (r.time - x) >= r.distance + 1
-      // -x^2 + r.time * x + (-r.distance - 1) >= 0
-
-      val a = -1
-      val b = r.time.toDouble
-      val c = (-r.distance - 1).toDouble
-      val d = (b * b) - (4 * a * c)
-      d match {
-        case 0 =>
-          Some(-b / 2 * a)
-        case d if d > 0 =>
-          // (-b +- sqrt(d)) / 2a
-          val sd = Math.sqrt(d)
-          val x1 = (-b + sd) / (2 * a)
-          val x2 = (-b - sd) / (2 * a)
-          Some((x1, x2))
-        case _ => None
-      }
-    }
-
-    solveSqEq(r) match {
-      case Some((x1, x2)) => (x2.floor - x1.ceil).toLong + 1
-      case Some(_)        => 1
-      case None           => 0
+    // x -- time held button == speed
+    // x * (r.time - x) >= r.distance + 1
+    // -x^2 + r.time * x + (-r.distance - 1) >= 0
+    util.Math.solveQuadraticEquation(a = -1, b = r.time, c = -r.distance - 1).sorted match {
+      case List(x1, x2) => (x2.floor - x1.ceil).toLong + 1
+      case List(_)      => 1
+      case _            => 0
     }
   }
 }
