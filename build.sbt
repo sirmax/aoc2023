@@ -25,5 +25,6 @@ lazy val puzzles = project
       "io.getkyo"        %% "kyo-core"        % "0.7.0",
       "io.getkyo"        %% "kyo-direct"      % "0.7.0",
       "org.typelevel"    %% "cats-parse"      % "1.0.0",
+      "org.typelevel"    %% "spire"           % "0.18.0",
     ),
   )
