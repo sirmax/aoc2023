@@ -109,6 +109,82 @@ object Day10 extends util.AocApp(2023, 10) {
     mutuallyAdjacent(input, input.s).collectFirstSome(rec(input.s, _, path0))
   }
 
+  /*
+  private def countEnclosed(cs: CoordSpace, path: BitSet): Int = {
+    def inRow(r: Int) = Iterator
+      .from(r * cs.w)
+      .take(cs.w)
+      .map(path)
+      .foldLeft((0, false)) {
+        case ((n, false), false) => (n, false)
+        case ((n, false), true)  => (n, true)
+        case ((n, true), false)  => (n + 1, true)
+        case ((n, true), true)   => (n, false)
+      }
+      ._1
+
+    Iterator.from(0).take(cs.h).map(inRow).sum
+  }
+   */
+  private def enclosed(input: Input, path: BitSet): BitSet = {
+    enum VDirection:
+      case U, D
+
+    case class State(acc: BitSet, inside: Boolean, separatorStart: Option[VDirection])
+
+    val sAdj = mutuallyAdjacent(input, input.s)
+    val sCell =
+      List(input.s.u, input.s.r, input.s.d, input.s.l).map(_.exists(c => path(c.i) && sAdj.contains(c))) match {
+        case List(true, true, false, false) => Cell.`L`
+        case List(true, false, true, false) => Cell.`|`
+        case List(true, false, false, true) => Cell.`J`
+
+        case List(false, true, true, false) => Cell.`F`
+        case List(false, true, false, true) => Cell.`-`
+
+        case List(false, false, true, true) => Cell.`7`
+      }
+
+    val cells = Array.copyOf(input.cells, input.cells.length)
+    cells(input.s.i) = sCell
+
+    Iterator
+      .from(0)
+      .grouped(input.cs.w)
+      .take(input.cs.h)
+      .map { row =>
+        row
+          .scanLeft(State(BitSet.empty, false, Option.empty)) { (s, i) =>
+            if (path(i)) {
+              (s.separatorStart, cells(i)) match {
+                case (Some(_), Cell.`-`)            => s
+                case (Some(VDirection.U), Cell.`J`) => s.copy(separatorStart = None)
+                case (Some(VDirection.U), Cell.`7`) => s.copy(separatorStart = None, inside = !s.inside)
+                case (Some(VDirection.D), Cell.`7`) => s.copy(separatorStart = None)
+                case (Some(VDirection.D), Cell.`J`) => s.copy(separatorStart = None, inside = !s.inside)
+                case (None, Cell.`|`)               => s.copy(inside = !s.inside)
+                case (None, Cell.`L`)               => s.copy(separatorStart = Some(VDirection.U))
+                case (None, Cell.`F`)               => s.copy(separatorStart = Some(VDirection.D))
+              }
+            } else if (s.inside && s.separatorStart.isEmpty) s.copy(acc = s.acc + i)
+            else s
+          }
+      }
+//      .tapEach(ss => println(s"${ss.last.acc}, $ss"))
+      .map(_.last.acc)
+      .reduce(_ ++ _)
+  }
+
+  private def showPath(cs: CoordSpace, path: BitSet): String = {
+    Iterator
+      .from(0)
+      .map(i => if (path(i)) "#" else ".")
+      .grouped(cs.w)
+      .take(cs.h)
+      .map(_.mkString)
+      .mkString("\n")
+  }
+
   def part1(input: Input): String > Effects = {
 //    println(s"$input")
 
@@ -117,7 +193,14 @@ object Day10 extends util.AocApp(2023, 10) {
   }
 
   def part2(input: Input): String > Effects = {
-    val result = "???"
+    val result = findPath(input)
+//      .tapEach(p => println(showPath(input.cs, p)))
+      .headOption
+      .map(enclosed(input, _))
+//      .tapEach(p => println(showPath(input.cs, p)))
+      .headOption
+      .map(_.size)
+      .getOrElse(-1)
     s"$result"
   }
 }
