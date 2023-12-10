@@ -6,7 +6,7 @@ import kyo.App.Effects
 import kyo.tries.Tries
 
 import scala.annotation.tailrec
-import scala.collection.immutable.Queue
+import scala.collection.immutable.{BitSet, Queue}
 
 object Day10 extends util.AocApp(2023, 10) {
   case class Input(cs: CoordSpace, cells: Array[Cell]) {
@@ -28,6 +28,7 @@ object Day10 extends util.AocApp(2023, 10) {
 
     extension (c: Coord) {
       def i: Int = c
+      def rc: (Int, Int) = (c / w, c % w)
 
       def u: Option[Coord] = Option.when(c >= w)(c - w)
       def d: Option[Coord] = Option.when((c + w) < size)(c + w)
@@ -68,31 +69,50 @@ object Day10 extends util.AocApp(2023, 10) {
     case Cell.`F` => List(c.d, c.r).flatten
   }
 
-  def part1(input: Input): String > Effects = {
-//    println(s"$input")
+  private def mutuallyAdjacent(input: Input, c: input.cs.Coord): List[input.cs.Coord] = {
+    adjacent(input.cells(c.i), input.cs, c).filter(c1 => adjacent(input.cells(c1.i), input.cs, c1).contains(c))
+  }
 
-    @tailrec def rec(next: Queue[input.cs.Coord], distances: Array[Int]): Int = {
-//      println()
-//      println(s"$next\n${distances.iterator.grouped(input.cs.w).map(_.mkString).mkString("\n")}")
-      val (c +: rest) = next
-      val atCell      = input.cells(c.i)
-      val atDistance  = distances(c.i)
-      val mutuallyAdjacent =
-        adjacent(atCell, input.cs, c).filter(c1 => adjacent(input.cells(c1.i), input.cs, c1).contains(c))
-      val (toVisit, visited) = mutuallyAdjacent.partition(c => distances(c.i) == 0)
-//      println(s"toVisit=$toVisit, visited=$visited")
-
-      if (visited.exists(c => distances(c.i) == atDistance + 1))
-        atDistance
+  private def findPath(input: Input): Option[BitSet] = {
+    @tailrec def rec(c0: input.cs.Coord, c: input.cs.Coord, path: BitSet): Option[BitSet] = {
+      val atCell             = input.cells(c.i)
+      val (visited, toVisit) = mutuallyAdjacent(input, c).partition(c => path(c.i))
+      /*
+      println {
+        val sPath = Iterator
+          .from(0)
+          .map(i =>
+            if (i == c.i) input.cells(c.i).toString
+            else if (path(i)) "#"
+            else input.cs.coord(i).some.filter(toVisit.contains).as(input.cells(i).toString).getOrElse(" "),
+          )
+          .grouped(input.cs.w)
+          .take(input.cs.h)
+          .map(_.mkString)
+          .mkString("\n")
+        val hSep = "-" * input.cs.w
+        val header = s"c0=$c0, c=$c ${ c.rc }, visited=$visited, toVisit=$toVisit, path=${ path.toList.sorted }"
+        s"\n$header\n$hSep$sPath\n$hSep"
+      }
+       */
+      if (visited.exists(_ != c0))
+        (path + c.i).some
       else {
-        toVisit.foreach(c => distances(c.i) = atDistance + 1) // Side-effect! GASP!!!
-        rec(rest :++ toVisit, distances)
+        toVisit.headOption match {
+          case Some(c1) => rec(c, c1, path + c.i)
+          case None     => None
+        }
       }
     }
 
-    val distances = Array.fill(input.cells.size)(0)
-    distances(input.s.i) = 1
-    val result = rec(Queue(input.s), distances)
+    val path0 = BitSet.empty + input.s.i
+    mutuallyAdjacent(input, input.s).collectFirstSome(rec(input.s, _, path0))
+  }
+
+  def part1(input: Input): String > Effects = {
+//    println(s"$input")
+
+    val result = findPath(input).map(_.size / 2).getOrElse(-1)
     s"$result"
   }
 
