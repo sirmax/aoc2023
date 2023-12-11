@@ -2,7 +2,7 @@ import Day10.Cell
 import cats.data.NonEmptyList
 import cats.syntax.all.*
 import kyo.>
-import kyo.App.Effects
+import kyo.apps.App.Effects
 import kyo.direct.*
 import kyo.tries.Tries
 

@@ -1,7 +1,7 @@
 import cats.data.NonEmptyList
 import cats.syntax.all.*
 import kyo.>
-import kyo.App.Effects
+import kyo.apps.App.Effects
 import kyo.tries.Tries
 
 object Day6 extends util.AocApp(2023, 6) {

@@ -1,8 +1,8 @@
 package util
 
 import kyo.*
-import kyo.App
-import kyo.App.Effects
+import kyo.apps.App
+import kyo.apps.App.Effects
 import kyo.clocks.Clocks
 import kyo.consoles.Consoles
 import kyo.direct.*
@@ -12,7 +12,7 @@ import java.nio.file.{Files, Path, Paths}
 import scala.concurrent.duration.FiniteDuration
 
 abstract class AocApp(year: Int, day: Int) extends App {
-  def run(args: List[String]): Unit > Effects = defer {
+  def run: Unit > Effects = defer {
     val maybeConfig = await(IOs(scopt.OParser.parse(oParser, args, AocApp.Config())))
 
     maybeConfig match

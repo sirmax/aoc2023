@@ -1,5 +1,5 @@
 import kyo.>
-import kyo.App.Effects
+import kyo.apps.App.Effects
 import kyo.tries.Tries
 
 object Day4 extends util.AocApp(2023, 4) {
@@ -40,7 +40,7 @@ object Day4 extends util.AocApp(2023, 4) {
     def input[$: P] = P(card.rep(sep = "\n", min = 1)).map(Input.apply)
 
     val parsed = parse(s, input)
-    Tries(parsed.get.value)
+    Tries.catching(parsed.get.value)
   }
 
   def part1(input: Input): String > Effects = {

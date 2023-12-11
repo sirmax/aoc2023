@@ -1,5 +1,5 @@
 import kyo.>
-import kyo.App.Effects
+import kyo.apps.App.Effects
 
 object Day2 extends util.AocApp(2023, 2) {
   case class Input(games: List[Game])
