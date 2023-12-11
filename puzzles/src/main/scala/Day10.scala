@@ -3,6 +3,7 @@ import cats.data.NonEmptyList
 import cats.syntax.all.*
 import kyo.>
 import kyo.App.Effects
+import kyo.direct.*
 import kyo.tries.Tries
 
 import scala.annotation.tailrec
@@ -220,12 +221,15 @@ object Day10 extends util.AocApp(2023, 10) {
     s"$result"
   }
 
-  def part2(input: Input): String > Effects = {
-    part2_shoelacePicks(input)
+  def part2(input: Input): String > Effects = defer {
+    val result1 = await(part2_shoelacePicks(input))
+    val result2 = await(part2_rowScan(input))
+
+    if (result1 == result2) s"$result1" else s"$result1 vs $result2"
   }
 
   /** Use geometry. Kudos to @jurisk for this. */
-  def part2_shoelacePicks(input: Input): String > Effects = {
+  def part2_shoelacePicks(input: Input): String > (Effects & kyo.concurrent.fibers.Fibers) = {
     val result = findPathCoords(input)
       .map { coords =>
         // https://en.wikipedia.org/wiki/Shoelace_formula
@@ -244,7 +248,7 @@ object Day10 extends util.AocApp(2023, 10) {
     s"$result"
   }
 
-  def _part2(input: Input): String > Effects = {
+  def part2_rowScan(input: Input): String > Effects = {
     val result = findPath(input)
 //      .tapEach(p => println(showPath(input.cs, p)))
       .headOption
