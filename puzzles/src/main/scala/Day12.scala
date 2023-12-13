@@ -14,6 +14,7 @@ object Day12 extends util.AocApp(2023, 12) {
     case `.`, `#`, `?`
 
   private given cats.Show[List[Gear]] = _.mkString
+  private given cats.Show[Set[Gear]] = s => s"(${Gear.values.toList.filter(s).mkString})"
 
   def parseInput(s: String): Input > Effects = {
     import cats.parse.{Numbers as N, Rfc5234 as R, Parser as P}
@@ -82,14 +83,11 @@ object Day12 extends util.AocApp(2023, 12) {
       spans: List[Span],
       damages: List[Int],
       allow: Set[Gear],
-      nDmg: Int,
-      nWrk: Int,
-      knDmg: Int,
-      knWrk: Int,
       acc: List[Span],
     ) {
 //      def isValid: Boolean = nWrk >= knWrk && nDmg >= knDmg && spans.headOption.forall(s => allow(s.g))
-      def isValid: Boolean = spans.headOption.forall(s => allow(s.g)) && (damages.iterator.sum <= spans.iterator.filter(_.g != Gear.`.`).map(_.n).sum)
+      def isValid: Boolean = spans.headOption
+        .forall(s => allow(s.g)) && (damages.iterator.sum <= spans.iterator.filter(_.g != Gear.`.`).map(_.n).sum)
 
 //      def isFinal: Boolean = nWrk == 0 && nDmg == 0
       def isFinal: Boolean = spans.isEmpty && damages.isEmpty
@@ -100,21 +98,19 @@ object Day12 extends util.AocApp(2023, 12) {
           (spans, damages) match {
             case ((s @ Span(Gear.`.`, n)) :: spans, damages) =>
 //              println(s"case ((s @ Span(Gear.`.`, n)) :: spans, damages) =>")
-              List(State(mul, spans, damages, allowAll, nDmg, nWrk - n, knDmg, knWrk - n, acc :+ s))
+              List(State(mul, spans, damages, allowAll, acc :+ s))
 
             case ((s @ Span(Gear.`#`, n)) :: spans, nd :: damages) =>
 //              println(s"case ((s @ Span(Gear.`#`, n)) :: spans, nd :: damages) =>")
-              if (n == nd) List(State(mul, spans, damages, allowWorking, nDmg - n, nWrk, knDmg - n, knWrk, acc :+ s))
-              else if (n < nd)
-                List(State(mul, spans, (nd - n) :: damages, allowDamaged, nDmg - n, nWrk, knDmg - n, knWrk, acc :+ s))
+              if (n == nd) List(State(mul, spans, damages, allowWorking, acc :+ s))
+              else if (n < nd) List(State(mul, spans, (nd - n) :: damages, allowDamaged, acc :+ s))
               else List.empty
 
             case (Span(Gear.`?`, n) :: spans, Nil) =>
 //              println(s"case (Span(Gear.`?`, n) :: spans, Nil) =>")
               val working =
-                if (allow(Gear.`.`)) {
-                  List(State(mul, spans, Nil, allowWorking, nDmg, nWrk - n, knDmg, knWrk, acc :+ Span(Gear.`.`, n)))
-                } else List.empty
+                if (allow(Gear.`.`)) List(State(mul, spans, Nil, allowWorking, acc :+ Span(Gear.`.`, n)))
+                else List.empty
               working
 
             case (Span(Gear.`?`, n) :: (spans @ Nil), damages) if allow == allowAll =>
@@ -128,16 +124,13 @@ object Day12 extends util.AocApp(2023, 12) {
               val nPlaces = n + 1 - dmgTake.sum
 //                            println(s"$dmgTake, $n, c($nPlaces, $toPlace) = ???")
               val choices = spire.math.choose(nPlaces, toPlace)
-              val placedDmg = dmgTake.sum
-              val placedWrk = n - placedDmg
 //              println(s"$dmgTake, $n, c($nPlaces, $toPlace) = $choices")
-              List(State(mul * choices, spans, dmgKeep, allowWorking, nDmg - placedDmg, nWrk - placedWrk, knDmg, knWrk, acc :+ Span(Gear.`?`, n)))
+              List(State(mul * choices, spans, dmgKeep, allowWorking, acc :+ Span(Gear.`?`, n)))
 
             case (Span(Gear.`?`, n) :: (spans @ (Span(Gear.`.`, _) :: _)), damages) if allow == allowAll =>
 //              println(s"case (Span(Gear.`?`, n) :: (spans @ (Span(Gear.`.`, _) :: _)), damages) if allow == allowAll =>")
               // try to fit all possible combinations of damage spans into n slots
-              val broken = (1 to damages.size)
-                .iterator
+              val broken = (1 to damages.size).iterator
                 .map(damages.splitAt)
                 .takeWhile((take, _) => (take.sum + take.size - 1) <= n)
                 .map { (dmgTake, dmgKeep) =>
@@ -146,17 +139,14 @@ object Day12 extends util.AocApp(2023, 12) {
                   // +1 compensates for the `.` ahead
                   val nPlaces = n + 1 - dmgTake.sum
                   val choices = spire.math.choose(nPlaces, toPlace)
-                  val placedDmg = dmgTake.sum
-                  val placedWrk = n - placedDmg
 //                  println(s"$dmgTake, $n, c($nPlaces, $toPlace) = $choices")
-                  State(mul * choices, spans, dmgKeep, allowWorking, nDmg - placedDmg, nWrk - placedWrk, knDmg, knWrk, acc :+ Span(Gear.`?`, n))
+                  State(mul * choices, spans, dmgKeep, allowWorking, acc :+ Span(Gear.`?`, n))
                 }
                 .toList
 
-              val working1 = State(mul, spans, damages, allow, nDmg, nWrk - n, knDmg, knWrk, acc :+ Span(Gear.`.`, n))
+              val working1 = State(mul, spans, damages, allow, acc :+ Span(Gear.`.`, n))
               // Put most placed dmg spans in front
               (working1 :: broken).reverse
-
 
             case (Span(Gear.`?`, n1) :: Span(Gear.`#`, n2) :: spans, damages) if allow == allowAll =>
 //              println(s"case (Span(Gear.`?`, n1) :: Span(Gear.`#`, n2) :: spans, damages) if allow == allowAll =>")
@@ -164,8 +154,7 @@ object Day12 extends util.AocApp(2023, 12) {
               // we can't have a definite place of the rightmost dmg span, instead we have to account
               // for all its possible positions on our `?` territory.
               println(s"${Span(Gear.`?`, n1)} :: ${Span(Gear.`#`, n2)}")
-              val broken = (1 to damages.size)
-                .iterator
+              val broken = (1 to damages.size).iterator
                 .map(damages.splitAt)
 //                .takeWhile((take, _) => (take.sum + take.size - 1) <= n1 + n2)
                 .map((take, keep) => (take.dropRight(1), take.last, keep))
@@ -174,22 +163,32 @@ object Day12 extends util.AocApp(2023, 12) {
                   (0 to math.min(n1, dmgLast - n2)).map((take, _, dmgLast, keep))
                 }
                 .tapEach(println)
-                .filter((take, overhead, _, _) => (math.max(0, take.sum + take.size) <= n1 - overhead))
+                .filter((take, overhead, _, _) => math.max(0, take.sum + take.size) <= n1 - overhead)
                 .map { (dmgTake, overhead, dmgLast, dmgKeep) =>
                   // collapse each dmg span + 1 adjacent wrk gear into 1
 //                  val dmgTake = dmgTakePlus.dropRight(1)
 //                  val dmgLast = dmgTakePlus.last
 //                  println(s"(0 to ($dmgLast - $n2))")
-                      val n = n1 - overhead
-                      val toPlace = dmgTake.size
-                      val nPlaces = n - dmgTake.sum
-                      val choices0 = spire.math.choose(nPlaces, toPlace)
-                      val choices = if (choices0 > 0) choices0 else BigInt(1)
-                      val placedDmg = dmgTake.sum
-                      val placedWrk = n - placedDmg
-                      val dmgPutBack = n2 + overhead
-                      println(s"dmgTake=$dmgTake, n=$n, n2=$n2, c($nPlaces, $toPlace) = $choices, overhead=$overhead. dmgPutBack=$dmgPutBack" )
-                      State(mul * choices, Span(Gear.`#`, dmgPutBack) :: spans, dmgLast :: dmgKeep, allowDamaged, nDmg - placedDmg, nWrk - placedWrk, knDmg + overhead, knWrk, acc :+ Span(Gear.`?`, n))
+                  val n          = n1 - overhead
+                  val toPlace    = dmgTake.size
+                  val nPlaces    = n - dmgTake.sum
+                  val choices0   = spire.math.choose(nPlaces, toPlace)
+                  val choices    = if (choices0 > 0) choices0 else BigInt(1)
+                  val dmgPutBack = n2 + overhead
+
+                  // This is just for debugging purposes to get a more precise picture on the printout.
+                  val spanToAccumulate = Span(if (toPlace == 0) Gear.`.` else Gear.`?`, n)
+
+                  println(
+                    s"dmgTake=$dmgTake, n=$n, n2=$n2, c($nPlaces, $toPlace) = $choices, overhead=$overhead. dmgPutBack=$dmgPutBack",
+                  )
+                  State(
+                    mul * choices,
+                    Span(Gear.`#`, dmgPutBack) :: spans,
+                    dmgLast :: dmgKeep,
+                    allowDamaged,
+                    acc :+ spanToAccumulate,
+                  )
                 }
                 .toList
               // Put most placed dmg spans in front
@@ -200,59 +199,19 @@ object Day12 extends util.AocApp(2023, 12) {
               val broken =
                 if (allow(Gear.`#`)) {
                   if (n == nd)
-                    List(
-                      State(mul, spans, damages, allowWorking, nDmg - n, nWrk, knDmg, knWrk, acc :+ Span(Gear.`#`, n)),
-                    )
+                    List(State(mul, spans, damages, allowWorking, acc :+ Span(Gear.`#`, n)))
                   else if (n < nd)
-                    List(
-                      State(
-                        mul,
-                        spans,
-                        (nd - n) :: damages,
-                        allowDamaged,
-                        nDmg - n,
-                        nWrk,
-                        knDmg,
-                        knWrk,
-                        acc :+ Span(Gear.`#`, n),
-                      ),
-                    )
+                    List(State(mul, spans, (nd - n) :: damages, allowDamaged, acc :+ Span(Gear.`#`, n)))
                   else
-                    List(
-                      State(
-                        mul,
-                        Span(Gear.`?`, n - nd) :: spans,
-                        damages,
-                        allowWorking,
-                        nDmg - nd,
-                        nWrk,
-                        knDmg,
-                        knWrk,
-                        acc :+ Span(Gear.`#`, nd),
-                      ),
-                    )
+                    List(State(mul, Span(Gear.`?`, n - nd) :: spans, damages, allowWorking, acc :+ Span(Gear.`#`, nd)))
                 } else List.empty
 
               val working =
                 if (allow(Gear.`.`)) {
                   if (n == 1)
-                    List(
-                      State(mul, spans, nd :: damages, allowAll, nDmg, nWrk - 1, knDmg, knWrk, acc :+ Span(Gear.`.`, 1)),
-                    )
+                    List(State(mul, spans, nd :: damages, allowAll, acc :+ Span(Gear.`.`, 1)))
                   else
-                    List(
-                      State(
-                        mul,
-                        Span(Gear.`?`, n - 1) :: spans,
-                        nd :: damages,
-                        allowAll,
-                        nDmg,
-                        nWrk - 1,
-                        knDmg,
-                        knWrk,
-                        acc :+ Span(Gear.`.`, 1),
-                      ),
-                    )
+                    List(State(mul, Span(Gear.`?`, n - 1) :: spans, nd :: damages, allowAll, acc :+ Span(Gear.`.`, 1)))
                 } else List.empty
 
               broken ++ working
@@ -268,31 +227,27 @@ object Day12 extends util.AocApp(2023, 12) {
           case (gear, Span(g, n) :: spans) if gear == g => Span(g, n + 1) :: spans
           case (gear, spans)                            => Span(gear, 1) :: spans
         }
-        val nDmg = row.damages.sum
-        val nWrk = row.gears.length - nDmg
 
-        val knownDmg: Int = row.gears.count(_ == Gear.`#`)
-        val knownWrk: Int = row.gears.count(_ == Gear.`.`)
-
-        State(
-          mul = 1,
-          spans,
-          row.damages,
-          allowAll,
-          nDmg = row.damages.sum,
-          nWrk = nWrk,
-          knDmg = knownDmg,
-          knWrk = knownWrk,
-          acc = List.empty,
-        )
+        State(mul = 1, spans, row.damages, allowAll, acc = List.empty)
       }
 
-      implicit val show: cats.Show[State] = s =>
-        s"[${if (s.isValid) "V" else " "}${if (s.isFinal) "F" else " "} x${s.mul} ${s.acc.show} ${s.spans.show} dmg=${s.damages
-            .mkString_(",")}, ${s.allow}, ${s.nDmg}(${s.knDmg}):${s.nWrk}(${s.knWrk})]"
+      implicit val show: cats.Show[State] = s => {
+        val v    = if (s.isValid) "V" else " "
+        val f    = if (s.isFinal) "F" else " "
+        val dmgs = s.damages.mkString_(",")
+        s"[$v$f x${s.mul} ${s.acc.show}◀︎${s.spans.show} $dmgs, ${s.allow.show}]"
+      }
     }
 
-    def spawn(s: State): Iterator[State] = Iterator(s) ++ s.next.iterator/*.filter(_.isValid)*/.flatMap(spawn)
+//    def spawn(s: State): Iterator[State] = Iterator(s) ++ s.next.iterator /*.filter(_.isValid)*/.flatMap(spawn)
+
+    def spawn(s: State): Iterator[State] = {
+      val next = s.next
+      // .filter(_.isValid)
+
+      println(s"${s.show}${next.mkString_("\nvvvvv\n", "\n", "")}")
+      Iterator(s) ++ next.iterator.filter(_.isValid).flatMap(spawn)
+    }
 
     val printEach = 1
 //    val printEach = 1_000_000L
@@ -362,29 +317,50 @@ object Day12 extends util.AocApp(2023, 12) {
               val dmgKeep = Nil
               val toPlace = dmgTake.size
               // +1 compensates for the absent last `.`
-              val nPlaces = n + 1 - dmgTake.sum
-              val choices = spire.math.choose(nPlaces, toPlace)
+              val nPlaces   = n + 1 - dmgTake.sum
+              val choices   = spire.math.choose(nPlaces, toPlace)
               val placedDmg = dmgTake.sum
               val placedWrk = n - placedDmg
 //                  println(s"$dmgTake, $n, c($nPlaces, $toPlace) = $choices")
-              List(State(mul * choices, spans, dmgKeep, allowWorking, nDmg - placedDmg, nWrk - placedWrk, knDmg, knWrk, acc :+ Span(Gear.`?`, n)))
+              List(
+                State(
+                  mul * choices,
+                  spans,
+                  dmgKeep,
+                  allowWorking,
+                  nDmg - placedDmg,
+                  nWrk - placedWrk,
+                  knDmg,
+                  knWrk,
+                  acc :+ Span(Gear.`?`, n),
+                ),
+              )
 
             case (Span(Gear.`?`, n) :: (spans @ (Span(Gear.`.`, _) :: _)), damages) if allow == allowAll =>
               // try to fit all possible combinations of damage spans into n slots
-              val broken = (1 to damages.size)
-                .iterator
+              val broken = (1 to damages.size).iterator
                 .map(damages.splitAt)
                 .takeWhile((take, _) => (take.sum + take.size - 1) <= n)
                 .map { (dmgTake, dmgKeep) =>
                   // collapse each dmg span + 1 adjacent wrk gear into 1
                   val toPlace = dmgTake.size
                   // +1 compensates for the `.` ahead
-                  val nPlaces = n + 1 - dmgTake.sum
-                  val choices = spire.math.choose(nPlaces, toPlace)
+                  val nPlaces   = n + 1 - dmgTake.sum
+                  val choices   = spire.math.choose(nPlaces, toPlace)
                   val placedDmg = dmgTake.sum
                   val placedWrk = n - placedDmg
 //                  println(s"$dmgTake, $n, c($nPlaces, $toPlace) = $choices")
-                  State(mul * choices, spans, dmgKeep, allowWorking, nDmg - placedDmg, nWrk - placedWrk, knDmg, knWrk, acc :+ Span(Gear.`?`, n))
+                  State(
+                    mul * choices,
+                    spans,
+                    dmgKeep,
+                    allowWorking,
+                    nDmg - placedDmg,
+                    nWrk - placedWrk,
+                    knDmg,
+                    knWrk,
+                    acc :+ Span(Gear.`?`, n),
+                  )
                 }
                 .toList
 
@@ -392,7 +368,7 @@ object Day12 extends util.AocApp(2023, 12) {
               // Put most placed dmg spans in front
               (working1 :: broken).reverse
 
-/*
+            /*
             case (Span(Gear.`?`, n1) :: Span(Gear.`#`, n2) :: spans, damages) if allow == allowAll =>
               // try to fit all possible combinations of damage spans into n slots
               val n = n1 + n2
@@ -417,7 +393,7 @@ object Day12 extends util.AocApp(2023, 12) {
                 .toList
               // Put most placed dmg spans in front
               broken.reverse
-*/
+             */
             case (Span(Gear.`?`, n) :: spans, nd :: damages) =>
               val broken =
                 if (allow(Gear.`#`)) {
@@ -514,7 +490,7 @@ object Day12 extends util.AocApp(2023, 12) {
             .mkString_(",")}, ${s.allow}, ${s.nDmg}(${s.knDmg}):${s.nWrk}(${s.knWrk})]"
     }
 
-    def spawn(s: State): Iterator[State] = Iterator(s) ++ s.next.iterator/*.filter(_.isValid)*/.flatMap(spawn)
+    def spawn(s: State): Iterator[State] = Iterator(s) ++ s.next.iterator /*.filter(_.isValid)*/.flatMap(spawn)
 
 //    val printEach = 1
     val printEach = 1_000_000L
