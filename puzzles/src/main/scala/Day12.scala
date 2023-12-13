@@ -60,7 +60,7 @@ object Day12 extends util.AocApp(2023, 12) {
     }.sum
   }
 
-  private def solveRowBetter(row: Row): Int = {
+  private def solveRowBetter(row: Row): BigInt = {
     val allowAll     = Set(Gear.`.`, Gear.`#`, Gear.`?`)
     val allowWorking = Set(Gear.`.`, Gear.`?`)
     val allowDamaged = Set(Gear.`#`, Gear.`?`)
@@ -72,7 +72,17 @@ object Day12 extends util.AocApp(2023, 12) {
       given cats.Show[List[Span]] = _.mkString_("")
     }
 
-    case class State(spans: List[Span], damages: List[Int], allow: Set[Gear], nDmg: Int, nWrk: Int, knDmg: Int, knWrk: Int, acc: List[Span]) {
+    case class State(
+      mul: BigInt,
+      spans: List[Span],
+      damages: List[Int],
+      allow: Set[Gear],
+      nDmg: Int,
+      nWrk: Int,
+      knDmg: Int,
+      knWrk: Int,
+      acc: List[Span],
+    ) {
       def isValid: Boolean = nWrk >= knWrk && nDmg >= knDmg && spans.headOption.forall(s => allow(s.g))
 
       def isFinal: Boolean = nWrk == 0 && nDmg == 0
@@ -81,31 +91,100 @@ object Day12 extends util.AocApp(2023, 12) {
         if (isFinal || !isValid) List.empty
         else
           (spans, damages) match {
-            case ((s @ Span(Gear.`.`, n)) :: spans, damages) => List(State(spans, damages, allowAll, nDmg, nWrk - n, knDmg, knWrk - n, acc :+ s))
+            case ((s @ Span(Gear.`.`, n)) :: spans, damages) =>
+              List(State(mul, spans, damages, allowAll, nDmg, nWrk - n, knDmg, knWrk - n, acc :+ s))
             case ((s @ Span(Gear.`#`, n)) :: spans, nd :: damages) =>
-              if (n == nd) List(State(spans, damages, allowWorking, nDmg - n, nWrk, knDmg - n, knWrk, acc :+ s))
-              else if (n < nd) List(State(spans, (nd - n) :: damages, allowDamaged, nDmg - n, nWrk, knDmg - n, knWrk, acc :+ s))
+              if (n == nd) List(State(mul, spans, damages, allowWorking, nDmg - n, nWrk, knDmg - n, knWrk, acc :+ s))
+              else if (n < nd)
+                List(State(mul, spans, (nd - n) :: damages, allowDamaged, nDmg - n, nWrk, knDmg - n, knWrk, acc :+ s))
               else List.empty
 
             case (Span(Gear.`?`, n) :: spans, Nil) =>
               val working =
                 if (allow(Gear.`.`)) {
-                  List(State(spans, Nil, allowWorking, nDmg, nWrk - n, knDmg, knWrk, acc :+ Span(Gear.`.`, n)))
+                  List(State(mul, spans, Nil, allowWorking, nDmg, nWrk - n, knDmg, knWrk, acc :+ Span(Gear.`.`, n)))
                 } else List.empty
               working
+
+            case (Span(Gear.`?`, n) :: (spans @ (Span(Gear.`.`, _) :: _)), damages) if allow == allowAll =>
+              // try to fit all possible combinations of damage spans into n slots
+              val broken = (1 until damages.size)
+                .iterator
+                .map(damages.splitAt)
+                .takeWhile((take, _) => (take.sum + take.size - 1) <= n)
+                .map { (dmgTake, dmgKeep) =>
+                  // collapse each dmg span + 1 adjacent wrk gear into 1
+                  val toPlace = dmgTake.size
+                  val nPlaces = n + 1 - dmgTake.sum
+                  val choices = spire.math.choose(nPlaces, toPlace)
+                  val placedDmg = dmgTake.sum
+                  val placedWrk = n - placedDmg
+//                  println(s"$dmgTake, $n, c($nPlaces, $toPlace) = $choices")
+                  State(mul * choices, spans, dmgKeep, allowWorking, nDmg - placedDmg, nWrk - placedWrk, knDmg, knWrk, acc :+ Span(Gear.`?`, n))
+                }
+                .toList
+
+              val working1 = State(mul, spans, damages, allow, nDmg, nWrk - n, knDmg, knWrk - n, acc :+ Span(Gear.`.`, n))
+              // Put most placed dmg spans in front
+              (working1 :: broken).reverse
 
             case (Span(Gear.`?`, n) :: spans, nd :: damages) =>
               val broken =
                 if (allow(Gear.`#`)) {
-                  if (n == nd) List(State(spans, damages, allowWorking, nDmg - n, nWrk, knDmg, knWrk, acc :+ Span(Gear.`#`, n)))
-                  else if (n < nd) List(State(spans, (nd - n) :: damages, allowDamaged, nDmg - n, nWrk, knDmg, knWrk, acc :+ Span(Gear.`#`, n)))
-                  else List(State(Span(Gear.`?`, n - nd) :: spans, damages, allowWorking, nDmg - nd, nWrk, knDmg, knWrk, acc :+ Span(Gear.`#`, nd)))
+                  if (n == nd)
+                    List(
+                      State(mul, spans, damages, allowWorking, nDmg - n, nWrk, knDmg, knWrk, acc :+ Span(Gear.`#`, n)),
+                    )
+                  else if (n < nd)
+                    List(
+                      State(
+                        mul,
+                        spans,
+                        (nd - n) :: damages,
+                        allowDamaged,
+                        nDmg - n,
+                        nWrk,
+                        knDmg,
+                        knWrk,
+                        acc :+ Span(Gear.`#`, n),
+                      ),
+                    )
+                  else
+                    List(
+                      State(
+                        mul,
+                        Span(Gear.`?`, n - nd) :: spans,
+                        damages,
+                        allowWorking,
+                        nDmg - nd,
+                        nWrk,
+                        knDmg,
+                        knWrk,
+                        acc :+ Span(Gear.`#`, nd),
+                      ),
+                    )
                 } else List.empty
 
               val working =
                 if (allow(Gear.`.`)) {
-                  if (n == 1) List(State(spans, nd :: damages, allowAll, nDmg, nWrk - 1, knDmg, knWrk, acc :+ Span(Gear.`.`, 1)))
-                  else List(State(Span(Gear.`?`, n - 1) :: spans, nd :: damages, allowAll, nDmg, nWrk - 1, knDmg, knWrk, acc :+ Span(Gear.`.`, 1)))
+                  if (n == 1)
+                    List(
+                      State(mul, spans, nd :: damages, allowAll, nDmg, nWrk - 1, knDmg, knWrk, acc :+ Span(Gear.`.`, 1)),
+                    )
+                  else
+                    List(
+                      State(
+                        mul,
+                        Span(Gear.`?`, n - 1) :: spans,
+                        nd :: damages,
+                        allowAll,
+                        nDmg,
+                        nWrk - 1,
+                        knDmg,
+                        knWrk,
+                        acc :+ Span(Gear.`.`, 1),
+                      ),
+                    )
                 } else List.empty
 
               broken ++ working
@@ -127,11 +206,22 @@ object Day12 extends util.AocApp(2023, 12) {
         val knownDmg: Int = row.gears.count(_ == Gear.`#`)
         val knownWrk: Int = row.gears.count(_ == Gear.`.`)
 
-        State(spans, row.damages, allowAll, nDmg = row.damages.sum, nWrk = nWrk, knDmg = knownDmg, knWrk = knownWrk, acc = List.empty)
+        State(
+          mul = 1,
+          spans,
+          row.damages,
+          allowAll,
+          nDmg = row.damages.sum,
+          nWrk = nWrk,
+          knDmg = knownDmg,
+          knWrk = knownWrk,
+          acc = List.empty,
+        )
       }
 
       implicit val show: cats.Show[State] = s =>
-        s"[${if (s.isValid) "V" else " "}${if (s.isFinal) "F" else " "}, ${s.acc.show} ${s.spans.show} dmg=${s.damages.mkString_(",")}, ${s.allow}, ${s.nDmg}(${s.knDmg}):${s.nWrk}(${s.knWrk})]"
+        s"[${if (s.isValid) "V" else " "}${if (s.isFinal) "F" else " "} x${s.mul} ${s.acc.show} ${s.spans.show} dmg=${s.damages
+            .mkString_(",")}, ${s.allow}, ${s.nDmg}(${s.knDmg}):${s.nWrk}(${s.knWrk})]"
     }
 
     def spawn(s: State): Iterator[State] = Iterator(s) ++ s.next.iterator.filter(_.isValid).flatMap(spawn)
@@ -143,8 +233,9 @@ object Day12 extends util.AocApp(2023, 12) {
       .zip(Iterator.iterate(0L)(_ + 1L))
       .tapEach((s, i) => if (i % printEach == 0) { println(s"$i ${s.show}") })
       .map(_._1)
-//      .tapEach(s => println(s.show))
-      .count(_.isFinal)
+      .filter(_.isFinal)
+      .map(_.mul)
+      .sum
   }
 
   private def solveRowDumb(row: Row) = {
