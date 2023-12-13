@@ -43,6 +43,7 @@ object Day12 extends util.AocApp(2023, 12) {
   }
 
   def part2(input: Input): String > Effects = {
+    // 2501183855078 too low
     val rowsUnfolded = input.rows.map { r =>
       Row(
         List.fill(5)(Gear.`?` :: r.gears).flatten.tail,
@@ -144,32 +145,39 @@ object Day12 extends util.AocApp(2023, 12) {
               // Put most placed dmg spans in front
               (working1 :: broken).reverse
 
-/*
+
             case (Span(Gear.`?`, n1) :: Span(Gear.`#`, n2) :: spans, damages) if allow == allowAll =>
               // try to fit all possible combinations of damage spans into n slots
-              val n = n1 + n2
-              println(s"${Span(Gear.`?`, n1)} :: ${Span(Gear.`#`, n2)}")
+              // we can't have a definite place of the rightmost dmg span, instead we have to account
+              // for all its possible positions on our `?` territory.
+//              println(s"${Span(Gear.`?`, n1)} :: ${Span(Gear.`#`, n2)}")
               val broken = (1 to damages.size)
                 .iterator
                 .map(damages.splitAt)
-                .takeWhile((take, _) => (take.sum + take.size - 1) <= n)
-                .filter((take, _) => take.last >= n1)
-                .map { (dmgTakePlus, dmgKeep) =>
+                .takeWhile((take, _) => (take.sum + take.size - 1) <= n1 + n2)
+                .filter((take, _) => take.last >= n2)
+                .flatMap { (dmgTakePlus, dmgKeep) =>
                   // collapse each dmg span + 1 adjacent wrk gear into 1
                   val dmgTake = dmgTakePlus.dropRight(1)
                   val dmgLast = dmgTakePlus.last
-                  val toPlace = dmgTake.size
-                  val nPlaces = n - dmgTake.sum - dmgLast
-                  val choices = if (toPlace > 0) spire.math.choose(nPlaces, toPlace) else BigInt(1)
-                  val placedDmg = dmgTakePlus.sum
-                  val placedWrk = n - placedDmg
-                  println(s"$dmgTake, $n, c($nPlaces, $toPlace) = $choices")
-                  State(mul * choices, spans, dmgKeep, allowWorking, nDmg - placedDmg, nWrk - placedWrk, knDmg - n2, knWrk, acc :+ Span(Gear.`?`, n1) :+ Span(Gear.`#`, n2))
+                  (0 to dmgLast - n2)
+                    .filter(dmgTake.sum + dmgTake.size - 1 <= n1 - _)
+                    .map { overhead =>
+                      val n = n1 - overhead
+                      val toPlace = dmgTake.size
+                      val nPlaces = n - dmgTake.sum
+                      val choices = if (toPlace > 0) spire.math.choose(nPlaces, toPlace) else BigInt(1)
+                      val placedDmg = dmgTake.sum
+                      val placedWrk = n - placedDmg
+                      val dmgPutBack = n2 + overhead
+//                      println(s"dmgTake=$dmgTake, n=$n, c($nPlaces, $toPlace) = $choices" )
+                      State(mul * choices, Span(Gear.`#`, dmgPutBack) :: spans, dmgPutBack :: dmgKeep, allowDamaged, nDmg - placedDmg, nWrk - placedWrk, knDmg, knWrk, acc :+ Span(Gear.`?`, n))
+                    }
                 }
                 .toList
               // Put most placed dmg spans in front
               broken.reverse
-*/
+
             case (Span(Gear.`?`, n) :: spans, nd :: damages) =>
               val broken =
                 if (allow(Gear.`#`)) {
