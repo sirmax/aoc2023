@@ -163,25 +163,23 @@ object Day12 extends util.AocApp(2023, 12) {
               // try to fit all possible combinations of damage spans into n slots
               // we can't have a definite place of the rightmost dmg span, instead we have to account
               // for all its possible positions on our `?` territory.
-//              println(s"${Span(Gear.`?`, n1)} :: ${Span(Gear.`#`, n2)}")
+              println(s"${Span(Gear.`?`, n1)} :: ${Span(Gear.`#`, n2)}")
               val broken = (1 to damages.size)
                 .iterator
                 .map(damages.splitAt)
-//                .tapEach(println)
 //                .takeWhile((take, _) => (take.sum + take.size - 1) <= n1 + n2)
                 .map((take, keep) => (take.dropRight(1), take.last, keep))
-                .takeWhile((take, _, _) => (take.sum + take.size - 1) <= n1)
-//                .tapEach(println)
-                .filter((_, takeLast, _) => takeLast >= n2)
-//                .tapEach(println)
-                .flatMap { (dmgTake, dmgLast, dmgKeep) =>
+                .filter((_, dmgLast, _) => dmgLast >= n2)
+                .flatMap { (take, dmgLast, keep) =>
+                  (0 to math.min(n1, dmgLast - n2)).map((take, _, dmgLast, keep))
+                }
+                .tapEach(println)
+                .filter((take, overhead, _, _) => (math.max(0, take.sum + take.size) <= n1 - overhead))
+                .map { (dmgTake, overhead, dmgLast, dmgKeep) =>
                   // collapse each dmg span + 1 adjacent wrk gear into 1
 //                  val dmgTake = dmgTakePlus.dropRight(1)
 //                  val dmgLast = dmgTakePlus.last
 //                  println(s"(0 to ($dmgLast - $n2))")
-                  (0 to math.min(n1, dmgLast - n2))
-                    .filter(dmgTake.sum + dmgTake.size - 1 <= n1 - _)
-                    .map { overhead =>
                       val n = n1 - overhead
                       val toPlace = dmgTake.size
                       val nPlaces = n - dmgTake.sum
@@ -190,9 +188,8 @@ object Day12 extends util.AocApp(2023, 12) {
                       val placedDmg = dmgTake.sum
                       val placedWrk = n - placedDmg
                       val dmgPutBack = n2 + overhead
-//                      println(s"dmgTake=$dmgTake, n=$n, n2=$n2, c($nPlaces, $toPlace) = $choices, overhead=$overhead. dmgPutBack=$dmgPutBack" )
+                      println(s"dmgTake=$dmgTake, n=$n, n2=$n2, c($nPlaces, $toPlace) = $choices, overhead=$overhead. dmgPutBack=$dmgPutBack" )
                       State(mul * choices, Span(Gear.`#`, dmgPutBack) :: spans, dmgLast :: dmgKeep, allowDamaged, nDmg - placedDmg, nWrk - placedWrk, knDmg + overhead, knWrk, acc :+ Span(Gear.`?`, n))
-                    }
                 }
                 .toList
               // Put most placed dmg spans in front
@@ -297,8 +294,8 @@ object Day12 extends util.AocApp(2023, 12) {
 
     def spawn(s: State): Iterator[State] = Iterator(s) ++ s.next.iterator/*.filter(_.isValid)*/.flatMap(spawn)
 
-//    val printEach = 1
-    val printEach = 1_000_000L
+    val printEach = 1
+//    val printEach = 1_000_000L
 
     spawn(State.of(row))
       .zip(Iterator.iterate(0L)(_ + 1L))
