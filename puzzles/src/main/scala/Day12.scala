@@ -60,8 +60,8 @@ object Day12 extends util.AocApp(2023, 12) {
     rows.map { row =>
 //      solveRowDumb(row)
       val r1 = solveRowBetter(row)
-      val r2 = solveRowBetterReference(row)
-      if (r1 != r2) Console.err.println(s"got $r1, expected $r2, ${row.gears.show} ${row.damages.mkString_(",")}")
+      // val r2 = solveRowBetterReference(row)
+      // if (r1 != r2) Console.err.println(s"got $r1, expected $r2, ${row.gears.show} ${row.damages.mkString_(",")}")
       r1
     }.sum
   }
@@ -114,18 +114,20 @@ object Day12 extends util.AocApp(2023, 12) {
               working
 
             case (Span(Gear.`?`, n) :: (spans @ Nil), damages) if allow == allowAll =>
-//              println(s"case (Span(Gear.`?`, n) :: (spans @ Nil), damages) if allow == allowAll =>")
+              // println(s"case (Span(Gear.`?`, n) :: (spans @ Nil), damages) if allow == allowAll =>")
               // try to fit all possible combinations of damage spans into n slots
               // collapse each dmg span + 1 adjacent wrk gear into 1
-              val dmgTake = damages
-              val dmgKeep = Nil
-              val toPlace = dmgTake.size
-              // +1 compensates for the absent last `.`
-              val nPlaces = n + 1 - dmgTake.sum
-//                            println(s"$dmgTake, $n, c($nPlaces, $toPlace) = ???")
-              val choices = spire.math.choose(nPlaces, toPlace)
-//              println(s"$dmgTake, $n, c($nPlaces, $toPlace) = $choices")
-              List(State(mul * choices, spans, dmgKeep, allowWorking, acc :+ Span(Gear.`?`, n)))
+              if (damages.sum + damages.size - 1 <= n) {
+                val dmgTake = damages
+                val dmgKeep = Nil
+                val toPlace = dmgTake.size
+                // +1 compensates for the absent last `.`
+                val nPlaces = n + 1 - dmgTake.sum
+                //                            println(s"$dmgTake, $n, c($nPlaces, $toPlace) = ???")
+                val choices = spire.math.choose(nPlaces, toPlace)
+                // println(s"$dmgTake, $n, c($nPlaces, $toPlace) = $choices")
+                List(State(mul * choices, spans, dmgKeep, allowWorking, acc :+ Span(Gear.`?`, n)))
+              } else List.empty
 
             case (Span(Gear.`?`, n) :: (spans @ (Span(Gear.`.`, _) :: _)), damages) if allow == allowAll =>
 //              println(s"case (Span(Gear.`?`, n) :: (spans @ (Span(Gear.`.`, _) :: _)), damages) if allow == allowAll =>")
@@ -153,7 +155,7 @@ object Day12 extends util.AocApp(2023, 12) {
               // try to fit all possible combinations of damage spans into n slots
               // we can't have a definite place of the rightmost dmg span, instead we have to account
               // for all its possible positions on our `?` territory.
-              println(s"${Span(Gear.`?`, n1)} :: ${Span(Gear.`#`, n2)}")
+              // println(s"${Span(Gear.`?`, n1)} :: ${Span(Gear.`#`, n2)}")
               val broken = (1 to damages.size).iterator
                 .map(damages.splitAt)
 //                .takeWhile((take, _) => (take.sum + take.size - 1) <= n1 + n2)
@@ -162,7 +164,7 @@ object Day12 extends util.AocApp(2023, 12) {
                 .flatMap { (take, dmgLast, keep) =>
                   (0 to math.min(n1, dmgLast - n2)).map((take, _, dmgLast, keep))
                 }
-                .tapEach(println)
+                // .tapEach(println)
                 .filter((take, overhead, _, _) => math.max(0, take.sum + take.size) <= n1 - overhead)
                 .map { (dmgTake, overhead, dmgLast, dmgKeep) =>
                   // collapse each dmg span + 1 adjacent wrk gear into 1
@@ -179,9 +181,9 @@ object Day12 extends util.AocApp(2023, 12) {
                   // This is just for debugging purposes to get a more precise picture on the printout.
                   val spanToAccumulate = Span(if (toPlace == 0) Gear.`.` else Gear.`?`, n)
 
-                  println(
-                    s"dmgTake=$dmgTake, n=$n, n2=$n2, c($nPlaces, $toPlace) = $choices, overhead=$overhead. dmgPutBack=$dmgPutBack",
-                  )
+                  // println(
+                  //  s"dmgTake=$dmgTake, n=$n, n2=$n2, c($nPlaces, $toPlace) = $choices, overhead=$overhead. dmgPutBack=$dmgPutBack",
+                  // )
                   State(
                     mul * choices,
                     Span(Gear.`#`, dmgPutBack) :: spans,
@@ -245,12 +247,12 @@ object Day12 extends util.AocApp(2023, 12) {
       val next = s.next
       // .filter(_.isValid)
 
-      println(s"${s.show}${next.mkString_("\nvvvvv\n", "\n", "")}")
+      // println(s"${s.show}${next.mkString_("\nvvvvv\n", "\n", "")}")
       Iterator(s) ++ next.iterator.filter(_.isValid).flatMap(spawn)
     }
 
-    val printEach = 1
-//    val printEach = 1_000_000L
+    // val printEach = 1
+    val printEach = 1_000_000L
 
     spawn(State.of(row))
       .zip(Iterator.iterate(0L)(_ + 1L))
