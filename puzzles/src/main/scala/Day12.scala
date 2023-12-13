@@ -93,15 +93,18 @@ object Day12 extends util.AocApp(2023, 12) {
         else
           (spans, damages) match {
             case ((s @ Span(Gear.`.`, n)) :: spans, damages) =>
+//              println(s"case ((s @ Span(Gear.`.`, n)) :: spans, damages) =>")
               List(State(mul, spans, damages, allowAll, nDmg, nWrk - n, knDmg, knWrk - n, acc :+ s))
 
             case ((s @ Span(Gear.`#`, n)) :: spans, nd :: damages) =>
+//              println(s"case ((s @ Span(Gear.`#`, n)) :: spans, nd :: damages) =>")
               if (n == nd) List(State(mul, spans, damages, allowWorking, nDmg - n, nWrk, knDmg - n, knWrk, acc :+ s))
               else if (n < nd)
                 List(State(mul, spans, (nd - n) :: damages, allowDamaged, nDmg - n, nWrk, knDmg - n, knWrk, acc :+ s))
               else List.empty
 
             case (Span(Gear.`?`, n) :: spans, Nil) =>
+//              println(s"case (Span(Gear.`?`, n) :: spans, Nil) =>")
               val working =
                 if (allow(Gear.`.`)) {
                   List(State(mul, spans, Nil, allowWorking, nDmg, nWrk - n, knDmg, knWrk, acc :+ Span(Gear.`.`, n)))
@@ -109,6 +112,7 @@ object Day12 extends util.AocApp(2023, 12) {
               working
 
             case (Span(Gear.`?`, n) :: (spans @ Nil), damages) if allow == allowAll =>
+//              println(s"case (Span(Gear.`?`, n) :: (spans @ Nil), damages) if allow == allowAll =>")
               // try to fit all possible combinations of damage spans into n slots
               // collapse each dmg span + 1 adjacent wrk gear into 1
               val dmgTake = damages
@@ -123,6 +127,7 @@ object Day12 extends util.AocApp(2023, 12) {
               List(State(mul * choices, spans, dmgKeep, allowWorking, nDmg - placedDmg, nWrk - placedWrk, knDmg, knWrk, acc :+ Span(Gear.`?`, n)))
 
             case (Span(Gear.`?`, n) :: (spans @ (Span(Gear.`.`, _) :: _)), damages) if allow == allowAll =>
+//              println(s"case (Span(Gear.`?`, n) :: (spans @ (Span(Gear.`.`, _) :: _)), damages) if allow == allowAll =>")
               // try to fit all possible combinations of damage spans into n slots
               val broken = (1 to damages.size)
                 .iterator
@@ -147,6 +152,7 @@ object Day12 extends util.AocApp(2023, 12) {
 
 
             case (Span(Gear.`?`, n1) :: Span(Gear.`#`, n2) :: spans, damages) if allow == allowAll =>
+//              println(s"case (Span(Gear.`?`, n1) :: Span(Gear.`#`, n2) :: spans, damages) if allow == allowAll =>")
               // try to fit all possible combinations of damage spans into n slots
               // we can't have a definite place of the rightmost dmg span, instead we have to account
               // for all its possible positions on our `?` territory.
@@ -171,7 +177,7 @@ object Day12 extends util.AocApp(2023, 12) {
                       val placedWrk = n - placedDmg
                       val dmgPutBack = n2 + overhead
 //                      println(s"dmgTake=$dmgTake, n=$n, c($nPlaces, $toPlace) = $choices" )
-                      State(mul * choices, Span(Gear.`#`, dmgPutBack) :: spans, dmgPutBack :: dmgKeep, allowDamaged, nDmg - placedDmg, nWrk - placedWrk, knDmg, knWrk, acc :+ Span(Gear.`?`, n))
+                      State(mul * choices, Span(Gear.`#`, dmgPutBack) :: spans, dmgPutBack :: dmgKeep, allowDamaged, nDmg - placedDmg, nWrk - placedWrk, knDmg + overhead, knWrk, acc :+ Span(Gear.`?`, n))
                     }
                 }
                 .toList
@@ -179,6 +185,7 @@ object Day12 extends util.AocApp(2023, 12) {
               broken.reverse
 
             case (Span(Gear.`?`, n) :: spans, nd :: damages) =>
+//              println(s"case (Span(Gear.`?`, n) :: spans, nd :: damages) =>")
               val broken =
                 if (allow(Gear.`#`)) {
                   if (n == nd)
@@ -281,8 +288,10 @@ object Day12 extends util.AocApp(2023, 12) {
 
     spawn(State.of(row))
       .zip(Iterator.iterate(0L)(_ + 1L))
-      .tapEach((s, i) => if (i % printEach == 0) { println(s"$i ${s.show}") })
+      .tapEach((s, i) => if (i % printEach == 0 || s.knWrk < 0 || s.knDmg < 0) { println(s"$i ${s.show}") })
       .map(_._1)
+//      .take(130)
+//      .takeWhile(s => s.knWrk > 0 && s.knDmg > 0 && s.knWrk > 0 && s.knDmg > 0)
       .filter(_.isFinal)
       .map(_.mul)
       .sum
