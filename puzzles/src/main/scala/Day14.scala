@@ -105,35 +105,43 @@ object Day14 extends util.AocApp(2023, 14) {
   }
 
   def part2(input: Input): String > Effects = {
-    val result = "???"
+    val (start, loop) = Iterator
+      .iterate(input)(spinCycle)
+      .scanLeft(IndexedSeq.empty[Input].asLeft[(IndexedSeq[Input], IndexedSeq[Input])]) {
+        case (Left(acc), i) =>
+          acc.indexOf(i).some.filter(_ >= 0).map(acc.splitAt).toRight(acc :+ i)
+        case (right, _) => right
+      }
+      .collect { case Right(x) => x }
+      .next()
+    val iNth = (1000000000 - start.size) % loop.size
+    // println(s"start=${start.size}, loop=${loop.size}, iNth=$iNth ${loop.map(load).zipWithIndex}")
+    val result = load(loop(iNth))
     s"$result"
   }
 
-  def rollUntilStop(input: Input, direction: HVDirection): Input = {
-    List
-      .unfold(input)(i0 => roll1(i0, direction).map(i => (i, i)))
-      .lastOption
-      .getOrElse(input)
+  def spinCycle(input: Input): Input = {
+    List(HVDirection.N, HVDirection.W, HVDirection.S, HVDirection.E)
+      .foldLeft(input)(rollUntilStop)
   }
 
-  def roll1(input: Input, direction: HVDirection): Option[Input] = {
+  def rollUntilStop(input: Input, direction: HVDirection): Input = {
     val cs = input.cs
     val traversal = direction match {
-      case HVDirection.N =>
-        cs.colNums.iterator.flatMap(x => cs.colCoords(x))
-
-      case x => throw MatchError(x)
+      case HVDirection.N => cs.colNums.iterator.flatMap(x => cs.colCoords(x))
+      case HVDirection.S => cs.colNums.iterator.flatMap(x => cs.colCoords(x).toArray.reverseIterator)
+      case HVDirection.W => cs.rowNums.iterator.flatMap(y => cs.rowCoords(y))
+      case HVDirection.E => cs.rowNums.iterator.flatMap(y => cs.rowCoords(y).toArray.reverseIterator)
     }
     val rRocks1 = traversal
       .filter(c0 => input.rRocks(c0.idx))
       .foldLeft(BitSet.empty) { (rRocks, c0) =>
-        val c1 = c0
-          .next(direction)
-          .filter(c => !input.sRocks(c.idx) && !rRocks(c.idx))
-          .getOrElse(c0)
+        val c1 = c0.tailRecM[cats.Id, Coord] { c =>
+          c.next(direction).filter(c => !input.sRocks(c.idx) && !rRocks(c.idx)).toLeft(c)
+        }
         rRocks + c1.idx
       }
-    input.copy(rRocks = rRocks1).some.filter(_ != input)
+    input.copy(rRocks = rRocks1)
   }
 
   def load(input: Input): Int = {
