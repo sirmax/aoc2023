@@ -1,4 +1,4 @@
-import Day10.Cell
+import aoc.cartesian.*
 import cats.data.NonEmptyList
 import cats.syntax.all.*
 import kyo.>
@@ -21,14 +21,14 @@ object Day10 extends util.AocApp(2023, 10) {
     case `S`, `.`, `|`, `-`, `L`, `J`, `7`, `F`
 
     def adjacentDirections: List[HVDirection] = this match
-      case Cell.`S` => List(HVDirection.U, HVDirection.D, HVDirection.L, HVDirection.R)
+      case Cell.`S` => List(HVDirection.N, HVDirection.S, HVDirection.W, HVDirection.E)
       case Cell.`.` => List.empty
-      case Cell.`|` => List(HVDirection.U, HVDirection.D)
-      case Cell.`-` => List(HVDirection.L, HVDirection.R)
-      case Cell.`L` => List(HVDirection.U, HVDirection.R)
-      case Cell.`J` => List(HVDirection.U, HVDirection.L)
-      case Cell.`7` => List(HVDirection.D, HVDirection.L)
-      case Cell.`F` => List(HVDirection.D, HVDirection.R)
+      case Cell.`|` => List(HVDirection.N, HVDirection.S)
+      case Cell.`-` => List(HVDirection.W, HVDirection.E)
+      case Cell.`L` => List(HVDirection.N, HVDirection.E)
+      case Cell.`J` => List(HVDirection.N, HVDirection.W)
+      case Cell.`7` => List(HVDirection.S, HVDirection.W)
+      case Cell.`F` => List(HVDirection.S, HVDirection.E)
   }
 
   object Cell {
@@ -36,36 +36,6 @@ object Day10 extends util.AocApp(2023, 10) {
       val ds = dirs.toSet
       Cell.values.find(_.adjacentDirections.toSet == ds)
     }
-  }
-
-  enum HVDirection {
-    case U, D, L, R
-
-    def inverse: HVDirection = this match {
-      case HVDirection.U => HVDirection.D
-      case HVDirection.D => HVDirection.U
-      case HVDirection.L => HVDirection.R
-      case HVDirection.R => HVDirection.L
-    }
-  }
-
-  case class Coord(cs: CoordSpace, idx: Int) {
-    def r: Int = idx / cs.w
-    def c: Int = idx % cs.w
-    def rc: (Int, Int) = (r, c)
-
-    def next(dir: HVDirection): Option[Coord] = dir match {
-      case HVDirection.U => Option.when(idx > cs.w)(copy(idx = idx - cs.w))
-      case HVDirection.D => Option.when((idx + cs.w) < cs.size)(copy(idx = idx + cs.w))
-      case HVDirection.L => Option.when((idx % cs.w) != 0)(copy(idx = idx - 1))
-      case HVDirection.R => Option.when(((idx + 1) % cs.w) != 0)(copy(idx = idx + 1))
-    }
-  }
-
-  case class CoordSpace(w: Int, h: Int) {
-    val size: Int = w * h
-
-    def coord(i: Int): Coord = Coord(this, i)
   }
 
   def parseInput(s: String): Input > Effects = {
@@ -162,7 +132,7 @@ object Day10 extends util.AocApp(2023, 10) {
 
     val sAdj = mutuallyAdjacent(input, input.s)
     val sCell =
-      List(HVDirection.U, HVDirection.R, HVDirection.D, HVDirection.L)
+      List(HVDirection.N, HVDirection.E, HVDirection.S, HVDirection.W)
         .map(input.s.next)
         .map(_.exists(c => path(c.idx) && sAdj.contains(c))) match {
         case List(true, true, false, false) => Cell.`L`

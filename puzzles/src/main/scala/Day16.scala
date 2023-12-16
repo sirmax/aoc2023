@@ -1,3 +1,4 @@
+import aoc.cartesian.*
 import cats.Show
 import cats.data.NonEmptyList
 import cats.syntax.all.*
@@ -47,50 +48,6 @@ object Day16 extends util.AocApp(2023, 16) {
       case Mirror.NW => "\\"
       case Mirror.H  => "-"
       case Mirror.V  => "|"
-    }
-  }
-
-  // TODO: Consider extracting from here, Day14, Day13, and Day10
-  enum HVDirection {
-    case N, E, S, W
-
-    def inverse: HVDirection = {
-      // Assuming the NESW order
-      HVDirection.fromOrdinal((this.ordinal + 2) % 4)
-    }
-  }
-
-  // TODO: Consider extracting from here, Day14, Day13, and Day10
-  case class Coord(cs: CoordSpace, idx: Int) {
-    def r: Int = idx / cs.w
-    def c: Int = idx % cs.w
-    def rc: (Int, Int) = (r, c)
-
-    def next(dir: HVDirection): Option[Coord] = dir match {
-      case HVDirection.N => Option.when(idx >= cs.w)(copy(idx = idx - cs.w))
-      case HVDirection.S => Option.when((idx + cs.w) < cs.size)(copy(idx = idx + cs.w))
-      case HVDirection.W => Option.when((idx % cs.w) != 0)(copy(idx = idx - 1))
-      case HVDirection.E => Option.when(((idx + 1) % cs.w) != 0)(copy(idx = idx + 1))
-    }
-  }
-
-  // TODO: Consider extracting from here, Day14, Day13, and Day10
-  case class CoordSpace(w: Int, h: Int) {
-    val size: Int = w * h
-
-    def coord(i: Int): Coord = Coord(this, i)
-    def coord(x: Int, y: Int): Coord = Coord(this, w * y + x)
-
-    def rowNums: Range = 0 until h
-    def colNums: Range = 0 until w
-
-    def coords: Iterator[Coord] = Iterator.range(0, size).map(coord)
-    def rowCoords(r: Int): Iterator[Coord] = colNums.iterator.map(coord(_, r))
-    def colCoords(c: Int): Iterator[Coord] = rowNums.iterator.map(coord(c, _))
-
-    def render(empty: String, masks: Seq[(String, BitSet)]): String = {
-      def charAt(idx: Int) = masks.collectFirstSome((ch, mask) => Option.when(mask(idx))(ch)).getOrElse(empty)
-      Iterator.range(0, size).map(charAt).grouped(w).map(_.mkString).mkString("\n")
     }
   }
 
