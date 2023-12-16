@@ -143,6 +143,8 @@ object Day10 extends util.AocApp(2023, 10) {
         case List(false, true, false, true) => Cell.`-`
 
         case List(false, false, true, true) => Cell.`7`
+
+        case unexpected => sys.error(s"Unexpected: $unexpected")
       }
 
     val cells = input.cells.updated(input.s.idx, sCell)
@@ -164,6 +166,7 @@ object Day10 extends util.AocApp(2023, 10) {
                 case (None, Cell.`|`)               => s.copy(inside = !s.inside)
                 case (None, Cell.`L`)               => s.copy(separatorStart = Some(VDirection.U))
                 case (None, Cell.`F`)               => s.copy(separatorStart = Some(VDirection.D))
+                case unexpected                     => sys.error(s"Unexpected: $unexpected")
               }
             } else if (s.inside && s.separatorStart.isEmpty) s.copy(acc = s.acc + i)
             else s

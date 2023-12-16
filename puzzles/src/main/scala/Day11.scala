@@ -67,6 +67,7 @@ object Day11 extends util.AocApp(2023, 11) {
           val d            = rDist + cDist
           //        println(s"($c1, $c2): $d; r: ${rMax-rMin} + ${(rMin + 1 until rMax).count(r => emptyRows(r))}, c: ${cMax - cMin} + ${(cMin + 1 until cMax).count(c => emptyRows(c))}")
           d
+        case unexpected => sys.error(s"Unexpected: $unexpected")
       }
       .sum
     result
