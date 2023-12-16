@@ -61,7 +61,7 @@ object Day14 extends util.AocApp(2023, 14) {
 
   def part1(input: Input): String > Effects = {
     // println(input.show)
-    val result = load(rollUntilStop(input, HVDirection.N))
+    val result = load(rollUntilStop(input, Direction.N))
     s"$result"
   }
 
@@ -82,17 +82,17 @@ object Day14 extends util.AocApp(2023, 14) {
   }
 
   def spinCycle(input: Input): Input = {
-    List(HVDirection.N, HVDirection.W, HVDirection.S, HVDirection.E)
+    List(Direction.N, Direction.W, Direction.S, Direction.E)
       .foldLeft(input)(rollUntilStop)
   }
 
-  def rollUntilStop(input: Input, direction: HVDirection): Input = {
+  def rollUntilStop(input: Input, direction: Direction): Input = {
     val cs = input.cs
     val traversal = direction match {
-      case HVDirection.N => cs.colNums.iterator.flatMap(x => cs.colCoords(x))
-      case HVDirection.S => cs.colNums.iterator.flatMap(x => cs.colCoords(x).toArray.reverseIterator)
-      case HVDirection.W => cs.rowNums.iterator.flatMap(y => cs.rowCoords(y))
-      case HVDirection.E => cs.rowNums.iterator.flatMap(y => cs.rowCoords(y).toArray.reverseIterator)
+      case Direction.N => cs.colNums.iterator.flatMap(x => cs.colCoords(x))
+      case Direction.S => cs.colNums.iterator.flatMap(x => cs.colCoords(x).toArray.reverseIterator)
+      case Direction.W => cs.rowNums.iterator.flatMap(y => cs.rowCoords(y))
+      case Direction.E => cs.rowNums.iterator.flatMap(y => cs.rowCoords(y).toArray.reverseIterator)
     }
     val rRocks1 = traversal
       .filter(c0 => input.rRocks(c0.idx))

@@ -20,19 +20,19 @@ object Day10 extends util.AocApp(2023, 10) {
   enum Cell {
     case `S`, `.`, `|`, `-`, `L`, `J`, `7`, `F`
 
-    def adjacentDirections: List[HVDirection] = this match
-      case Cell.`S` => List(HVDirection.N, HVDirection.S, HVDirection.W, HVDirection.E)
+    def adjacentDirections: List[Direction] = this match
+      case Cell.`S` => List(Direction.N, Direction.S, Direction.W, Direction.E)
       case Cell.`.` => List.empty
-      case Cell.`|` => List(HVDirection.N, HVDirection.S)
-      case Cell.`-` => List(HVDirection.W, HVDirection.E)
-      case Cell.`L` => List(HVDirection.N, HVDirection.E)
-      case Cell.`J` => List(HVDirection.N, HVDirection.W)
-      case Cell.`7` => List(HVDirection.S, HVDirection.W)
-      case Cell.`F` => List(HVDirection.S, HVDirection.E)
+      case Cell.`|` => List(Direction.N, Direction.S)
+      case Cell.`-` => List(Direction.W, Direction.E)
+      case Cell.`L` => List(Direction.N, Direction.E)
+      case Cell.`J` => List(Direction.N, Direction.W)
+      case Cell.`7` => List(Direction.S, Direction.W)
+      case Cell.`F` => List(Direction.S, Direction.E)
   }
 
   object Cell {
-    def fromOutgoingDirections(dirs: HVDirection*): Option[Cell] = {
+    def fromOutgoingDirections(dirs: Direction*): Option[Cell] = {
       val ds = dirs.toSet
       Cell.values.find(_.adjacentDirections.toSet == ds)
     }
@@ -132,7 +132,7 @@ object Day10 extends util.AocApp(2023, 10) {
 
     val sAdj = mutuallyAdjacent(input, input.s)
     val sCell =
-      List(HVDirection.N, HVDirection.E, HVDirection.S, HVDirection.W)
+      List(Direction.N, Direction.E, Direction.S, Direction.W)
         .map(input.s.next)
         .map(_.exists(c => path(c.idx) && sAdj.contains(c))) match {
         case List(true, true, false, false) => Cell.`L`

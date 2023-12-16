@@ -83,10 +83,10 @@ object Day16 extends util.AocApp(2023, 16) {
 
   def part2(input: Input): String > Effects = {
     val best = Iterator(
-      input.cs.rowCoords(0).map(_ -> HVDirection.S),
-      input.cs.rowCoords(input.cs.h - 1).map(_ -> HVDirection.N),
-      input.cs.colCoords(0).map(_ -> HVDirection.E),
-      input.cs.colCoords(input.cs.w - 1).map(_ -> HVDirection.W),
+      input.cs.rowCoords(0).map(_ -> Direction.S),
+      input.cs.rowCoords(input.cs.h - 1).map(_ -> Direction.N),
+      input.cs.colCoords(0).map(_ -> Direction.E),
+      input.cs.colCoords(input.cs.w - 1).map(_ -> Direction.W),
     ).flatten
       .map((c, d) => runBeam(input, c, d))
       .maxBy(_.size)
@@ -94,8 +94,8 @@ object Day16 extends util.AocApp(2023, 16) {
     s"$result"
   }
 
-  private val applyMirror: Map[Mirror, Map[HVDirection, List[HVDirection]]] = {
-    import HVDirection.*
+  private val applyMirror: Map[Mirror, Map[Direction, List[Direction]]] = {
+    import Direction.*
     Map(
       Mirror.NE -> Map((N, List(E)), (S, List(W)), (E, List(N)), (W, List(S))),
       Mirror.NW -> Map((N, List(W)), (S, List(E)), (E, List(S)), (W, List(N))),
@@ -104,10 +104,10 @@ object Day16 extends util.AocApp(2023, 16) {
     )
   }
 
-  private def runBeam(input: Input): BitSet = runBeam(input, input.cs.coord(0), HVDirection.E)
+  private def runBeam(input: Input): BitSet = runBeam(input, input.cs.coord(0), Direction.E)
 
-  private def runBeam(input: Input, c0: Coord, d0: HVDirection): BitSet = {
-    @tailrec def rec(todo: List[(Coord, HVDirection)], visited: Map[HVDirection, BitSet]): BitSet = {
+  private def runBeam(input: Input, c0: Coord, d0: Direction): BitSet = {
+    @tailrec def rec(todo: List[(Coord, Direction)], visited: Map[Direction, BitSet]): BitSet = {
       todo match {
         case (c, d) :: rest if !visited(d)(c.idx) =>
           val maybeMirror = input.at(c)
@@ -129,6 +129,6 @@ object Day16 extends util.AocApp(2023, 16) {
         case _         => visited.values.reduce(_ ++ _)
       }
     }
-    rec(List((c0, d0)), HVDirection.values.toList.tupleRight(BitSet.empty).toMap)
+    rec(List((c0, d0)), Direction.values.toList.tupleRight(BitSet.empty).toMap)
   }
 }
