@@ -27,8 +27,7 @@ object Day16 extends util.AocApp(2023, 16) {
 
   object Input {
     given Show[Input] = { input =>
-      val cs = input.cs
-      Iterator.range(0, cs.size).grouped(cs.w).map(_.map(input.at(_).show).mkString).mkString("\n")
+      input.cs.render(".", Mirror.values.map(m => (m.show, input.mirrors(m))))
     }
   }
 
@@ -43,37 +42,17 @@ object Day16 extends util.AocApp(2023, 16) {
       case '|'  => Mirror.V
     }
 
-    given Show[Option[Mirror]] = {
-      case Some(Mirror.NE) => "/"
-      case Some(Mirror.NW) => "\\"
-      case Some(Mirror.H)  => "-"
-      case Some(Mirror.V)  => "|"
-      case None            => "."
-    }
-  }
-
-  // TODO: Consider extracting from here, Day14, Day13, and Day10
-  enum ClockDirection {
-    case CW, CCW
-
-    def inverse: ClockDirection = this match {
-      case ClockDirection.CW  => ClockDirection.CCW
-      case ClockDirection.CCW => ClockDirection.CW
+    given Show[Mirror] = {
+      case Mirror.NE => "/"
+      case Mirror.NW => "\\"
+      case Mirror.H  => "-"
+      case Mirror.V  => "|"
     }
   }
 
   // TODO: Consider extracting from here, Day14, Day13, and Day10
   enum HVDirection {
     case N, E, S, W
-
-    def turn(d: ClockDirection): HVDirection = {
-      // Assuming the NESW order
-      val delta = d match
-        case ClockDirection.CW  => +1
-        case ClockDirection.CCW => -1
-
-      HVDirection.fromOrdinal((this.ordinal + delta) % 4)
-    }
 
     def inverse: HVDirection = {
       // Assuming the NESW order
@@ -139,13 +118,22 @@ object Day16 extends util.AocApp(2023, 16) {
 
   def part1(input: Input): String > Effects = {
     // println(input.show)
-    // 5151 too low :(
-    val result = energized(input).size
+    val energized = runBeam(input)
+    // println(input.cs.render(" ", Mirror.values.toList.map(m => (m.show, input.mirrors(m))) :+ (".", energized)))
+    val result = energized.size
     s"$result"
   }
 
   def part2(input: Input): String > Effects = {
-    val result = "???"
+    val best = Iterator(
+      input.cs.rowCoords(0).map(_ -> HVDirection.S),
+      input.cs.rowCoords(input.cs.h - 1).map(_ -> HVDirection.N),
+      input.cs.colCoords(0).map(_ -> HVDirection.E),
+      input.cs.colCoords(input.cs.w - 1).map(_ -> HVDirection.W),
+    ).flatten
+      .map((c, d) => runBeam(input, c, d))
+      .maxBy(_.size)
+    val result = best.size
     s"$result"
   }
 
@@ -159,34 +147,9 @@ object Day16 extends util.AocApp(2023, 16) {
     )
   }
 
-  private def adjacency(input: Input): Map[HVDirection, Map[Coord, Coord]] = {
-    def pairs(d: HVDirection): Map[Coord, Coord] =
-      input.cs.coords.flatMap(c => input.at(c).as(c).flatMap(findPair(input, _, d)).tupleLeft(c)).toMap
+  private def runBeam(input: Input): BitSet = runBeam(input, input.cs.coord(0), HVDirection.E)
 
-    val sPairs = pairs(HVDirection.S)
-    val ePairs = pairs(HVDirection.E)
-    Map(
-      HVDirection.N -> sPairs.map(_.swap),
-      HVDirection.E -> ePairs,
-      HVDirection.S -> sPairs,
-      HVDirection.W -> ePairs.map(_.swap),
-    )
-  }
-
-  private def findPair(input: Input, c: Coord, d: HVDirection): Option[Coord] =
-    c.tailRecM(_.next(d).map(c => input.at(c).as(c).toRight(c)))
-
-  // private def energized(input: Input): BitSet = {
-  //   val c0 = input.cs.coord(0)
-  //   val d0 = HVDirection.E
-  //   val c1 = findPair(input, c0, d0)
-  //   val adj = adjacency(input)
-  //     .updatedWith(d0)(_.map(_.updatedWith(c0)(_.orElse(findPair(input, c0, d0)))))
-  //
-  //   @tailrec def rec(todo: List[(Coord, HVDirection)], visited: Map[(Coord, HVDirection), Option[Coord]]):
-  // }
-
-  private def energized(input: Input): BitSet = {
+  private def runBeam(input: Input, c0: Coord, d0: HVDirection): BitSet = {
     @tailrec def rec(todo: List[(Coord, HVDirection)], visited: Map[HVDirection, BitSet]): BitSet = {
       todo match {
         case (c, d) :: rest if !visited(d)(c.idx) =>
@@ -195,23 +158,20 @@ object Day16 extends util.AocApp(2023, 16) {
           val todo1       = next ++: rest
           val visited1    = visited.updatedWith(d)(_.map(_ + c.idx))
           // println(
-          //   s"energized((${todo.head}, _), next=$next\n${input.cs
+          //   s"runBeam((${todo.head}, _), next=$next\n${input.cs
           //       .render(
           //         ".",
-          //         (maybeMirror.map(_.some.show).getOrElse("*"), BitSet(c.idx)) :: (
+          //         (maybeMirror.map(_.show).getOrElse("*"), BitSet(c.idx)) :: (
           //           "@",
           //           BitSet.fromSpecific(todo1.headOption.map(_._1.idx)),
           //         ) :: ("O", BitSet.fromSpecific(todo1.map(_._1.idx))) :: visited1.toList.map((d, mask) => (d.toString.toLowerCase, mask)),
           //       )}",
           // )
-          // assert(visited1.values.forall(_.forall(idx => idx >= 0 && idx < input.cs.size)))
           rec(todo1, visited1)
         case _ :: rest => rec(rest, visited)
         case _         => visited.values.reduce(_ ++ _)
       }
     }
-    val result = rec(List(input.cs.coord(0) -> HVDirection.E), HVDirection.values.toList.tupleRight(BitSet.empty).toMap)
-    // println(input.cs.render(" ", Mirror.values.toList.map(m => (m.some.show, input.mirrors(m))) :+ (".", result)))
-    result
+    rec(List((c0, d0)), HVDirection.values.toList.tupleRight(BitSet.empty).toMap)
   }
 }
