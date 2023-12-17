@@ -86,11 +86,12 @@ object Day17 extends util.AocApp(2023, 17) {
       distance + directionPenalty
     }
 
-    val result = AStar.run[Node](
+    val result = AStar.runIndexed[Node](
       init = NonEmptyList.of(Node(cStart, Direction.E), Node(cStart, Direction.S)),
       edges = { n => edges(n.d)(n.c.idx) },
       goalReached = { n => n.c == cGoal },
       weightHeuristic = { n => weightHeuristic(n) },
+      nodeIndex = { n => n.c.idx + (n.d.ordinal * n.c.cs.size) },
     )
     println(s"nIterations=${result.nIterations} weight=${result.bestWeight}")
     // println(renderMap(input, result.path))
