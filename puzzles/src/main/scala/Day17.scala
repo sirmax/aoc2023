@@ -51,29 +51,34 @@ object Day17 extends util.AocApp(2023, 17) {
   }
 
   private def leastLoss(input: Input, cStart: Coord, cGoal: Coord, minStreak: Int, maxStreak: Int): Int = {
-    case class State(
-      c: Coord,
-      d: Direction,
-      streak: Int,
-      moves: List[Coord] = Nil,
-      heatLoss: Int = 0,
-    )
+    val edges: Map[Direction, IndexedSeq[List[(Coord, Int)]]] = {
+      Direction.values.toList.fproduct { d =>
+        input.cs.indexes.map { idx =>
+          val c0 = input.cs.coord(idx)
+          List
+            .unfold(c0)(c => c.next(d).map(c => (c, c)))
+            .scanLeft((c0, 0)) { case ((_, loss), c) => (c, loss + input.at(c)) }
+            .drop(1) // drop the initial 0
+            .slice(minStreak - 1, maxStreak)
+        }
+      }.toMap
+    }
+
+    case class State(c: Coord = cStart, d: Option[Direction] = None, moves: List[Coord] = Nil, heatLoss: Int = 0)
 
     case class Acc(
       best: Option[State] = None,
-      minHeatLoss: Map[(Direction, Int), Vector[Int]] = {
-        (Direction.values.toList, (1 to maxStreak).toList).tupled
-          .tupleRight(Vector.fill(input.cs.size)(Int.MaxValue))
-          .toMap
-      },
-      nIterations: Long = 0,
+      minHeatLoss: Map[Direction, Vector[Int]] =
+        Direction.values.toList.tupleRight(Vector.fill(input.cs.size)(Int.MaxValue)).toMap,
+      nIterations: Int = 0,
     ) {
-      def lossAt(c: Coord, d: Direction, streak: Int): Int = minHeatLoss((d, streak))(c.idx)
+      def lossAt(c: Coord, d: Direction): Int = minHeatLoss(d)(c.idx)
 
-      def add(c: Coord, d: Direction, streak: Int, heatLoss: Int, newBest: Option[State] = None): Acc = {
+      def next(s: State, isAtGoal: Boolean): Acc = {
         Acc(
-          best = newBest.filter(s => best.forall(_.heatLoss > s.heatLoss)).orElse(best),
-          minHeatLoss = minHeatLoss.updatedWith((d, streak))(_.map(_.updated(c.idx, heatLoss))),
+          best = Option.when(isAtGoal)(s).filter(s => best.forall(_.heatLoss > s.heatLoss)).orElse(best),
+          minHeatLoss =
+            s.d.map(d => minHeatLoss.updatedWith(d)(_.map(_.updated(s.c.idx, s.heatLoss)))).getOrElse(minHeatLoss),
           nIterations = nIterations + 1,
         )
       }
@@ -81,62 +86,47 @@ object Day17 extends util.AocApp(2023, 17) {
       def next: Acc = copy(nIterations = nIterations + 1)
     }
 
-    @tailrec def recur(
-      todo: Queue[State] = Queue(
-        State(cStart, Direction.E, streak = 0),
-        // State(cStart, Direction.S, streak = 0),
-      ),
-      acc: Acc = Acc(),
-    ): Option[State] = {
-      // val traceEvery = 1L
-      val traceEvery = 10_000_000L
-      if (acc.nIterations % traceEvery == 0) {
-        val map = renderMap(
-          input,
-          todo.headOption.map(_.moves).getOrElse(List.empty),
-          acc.best.map(_.moves).getOrElse(List.empty),
-        )
-        println(s"${acc.nIterations} best=${acc.best.map(_.heatLoss)} current=${todo.headOption.map(_.heatLoss)}\n$map")
-      }
-
-      todo match {
+    @tailrec def recur(todo: Queue[State] = Queue(State()), acc: Acc = Acc()): Acc = {
+      todo.match {
         case s +: todoRest =>
-          if (s.streak == 0 || s.heatLoss < acc.lossAt(s.c, s.d, s.streak)) {
+          // val traceEvery = 1L
+          val traceEvery = 10_000_000L
+          // if (acc.nIterations % traceEvery == 0) {
+          //   val map = renderMap(
+          //     input,
+          //     todo.headOption.map(_.moves).getOrElse(List.empty),
+          //   )
+          //   println(
+          //     s"${acc.nIterations} best=${acc.best.map(_.heatLoss)} current=${todo.headOption.map(_.heatLoss)}\n$map",
+          //   )
+          // }
+
+          if (s.d.forall(d => s.heatLoss < acc.lossAt(s.c, d))) {
             val atGoal = s.c == cGoal
-            val acc1   = acc.add(s.c, s.d, s.streak, s.heatLoss, if (atGoal) s.some else acc.best)
+            val acc1   = acc.next(s, atGoal)
 
             val newTodo = for {
-              _ <- List(()) if !atGoal
-              (d, streak) <- {
-                def turns = List(Rotation.CW, Rotation.CCW).map(r => (s.d.turn(r), 1))
-                if (s.streak < minStreak) (s.d, s.streak + 1) :: Nil
-                else if (s.streak < maxStreak) (s.d, s.streak + 1) :: turns
-                else turns
-              }
-              c <- s.c.next(d)
-              // Don't follow streaks that would go out of bounds
-              if Iterator.iterate(c.some)(_.flatMap(_.next(d))).drop(minStreak - streak).next().isDefined
-              addedLoss = input.at(c)
-            } yield State(c, d, streak, c :: s.moves, addedLoss + s.heatLoss)
+              d              <- s.d.map(d => Rotation.values.map(d.turn)).getOrElse(Direction.values).toList
+              (c, addedLoss) <- edges(d)(s.c.idx)
+            } yield State(c, d.some, c :: s.moves, addedLoss + s.heatLoss)
 
             recur(todoRest :++ newTodo, acc1)
           } else recur(todoRest, acc.next)
 
-        case _ => acc.best
+        case _ => acc
       }
     }
 
-    val best = recur().getOrElse(sys.error("Oh no!"))
-    println(s"""heatLoss=${best.heatLoss}\n${renderMap(input, best.moves, List.empty)}""")
+    val acc  = recur()
+    val best = acc.best.getOrElse(sys.error("No solution found :("))
+    println(s"""nIterations=${acc.nIterations} heatLoss=${best.heatLoss}\n${renderMap(input, best.moves)}""")
     best.heatLoss
   }
 
-  private def renderMap(input: Input, moves: List[Coord], best: List[Coord]): String = {
+  private def renderMap(input: Input, moves: List[Coord]): String = {
     val movesMask = BitSet.fromSpecific(moves.map(_.idx))
-    val bestMask  = BitSet.fromSpecific(best.map(_.idx))
     input.cs.render { idx =>
       if (movesMask(idx)) input.at(idx).toString
-      else if (bestMask(idx)) "."
       else " "
     }
   }

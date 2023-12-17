@@ -10,6 +10,7 @@ case class CoordSpace(w: Int, h: Int) {
   def coord(i: Int): Coord = Coord(this, i)
   def coord(x: Int, y: Int): Coord = Coord(this, w * y + x)
 
+  def indexes: Range = 0 until size
   def rowNums: Range = 0 until h
   def colNums: Range = 0 until w
 
