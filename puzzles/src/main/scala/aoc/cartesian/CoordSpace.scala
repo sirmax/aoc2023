@@ -21,4 +21,9 @@ case class CoordSpace(w: Int, h: Int) {
     def charAt(idx: Int) = masks.collectFirstSome((ch, mask) => Option.when(mask(idx))(ch)).getOrElse(empty)
     Iterator.range(0, size).map(charAt).grouped(w).map(_.mkString).mkString("\n")
   }
+
+  def render(default: Int => String, masks: Seq[(String, BitSet)] = Seq.empty): String = {
+    def charAt(idx: Int) = masks.collectFirstSome((ch, mask) => Option.when(mask(idx))(ch)).getOrElse(default(idx))
+    Iterator.range(0, size).map(charAt).grouped(w).map(_.mkString).mkString("\n")
+  }
 }
