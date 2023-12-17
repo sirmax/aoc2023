@@ -11,4 +11,6 @@ case class Coord(cs: CoordSpace, idx: Int) {
     case Direction.W => Option.when((idx % cs.w) != 0)(copy(idx = idx - 1))
     case Direction.E => Option.when(((idx + 1) % cs.w) != 0)(copy(idx = idx + 1))
   }
+
+  def manhattanDistance(that: Coord): Int = (this.r - that.r).abs + (this.c - that.c).abs
 }
