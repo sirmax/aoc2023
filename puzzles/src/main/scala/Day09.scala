@@ -6,7 +6,7 @@ import kyo.tries.Tries
 
 import scala.collection.immutable.Queue
 
-object Day9 extends util.AocApp(2023, 9) {
+object Day09 extends util.AocApp(2023, 9) {
   case class Input(histories: NonEmptyList[History])
 
   case class History(values: NonEmptyList[Long])

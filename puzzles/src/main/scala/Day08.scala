@@ -4,7 +4,7 @@ import kyo.>
 import kyo.apps.App.Effects
 import kyo.tries.Tries
 
-object Day8 extends util.AocApp(2023, 8) {
+object Day08 extends util.AocApp(2023, 8) {
   case class Input(turns: Turns, nodes: Nodes)
 
   case class Turns(seq: Vector[Turn])

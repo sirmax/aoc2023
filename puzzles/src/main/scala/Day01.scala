@@ -2,7 +2,7 @@ import kyo.*
 import kyo.consoles.*
 import kyo.direct.*
 
-object Day1 extends util.AocApp(2023, 1) {
+object Day01 extends util.AocApp(2023, 1) {
   override type Input = List[String]
 
   def parseInput(s: String): List[String] = s.linesIterator.toList

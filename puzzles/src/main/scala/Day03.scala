@@ -2,7 +2,7 @@ import kyo.>
 import kyo.apps.App.Effects
 import kyo.tries.Tries
 
-object Day3 extends util.AocApp(2023, 3) {
+object Day03 extends util.AocApp(2023, 3) {
   case class Num(value: Int, length: Int)
   opaque type Sym = Char
   opaque type Entry = (Int, Num | Sym)

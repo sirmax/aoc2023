@@ -5,7 +5,7 @@ import kyo.>
 import kyo.apps.App.Effects
 import kyo.tries.Tries
 
-object Day0 extends util.AocApp(2023, 0) {
+object Day00 extends util.AocApp(2023, 0) {
   case class Input()
 
   object Input {

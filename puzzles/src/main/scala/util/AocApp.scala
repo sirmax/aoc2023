@@ -18,8 +18,8 @@ abstract class AocApp(year: Int, day: Int) extends App {
     maybeConfig match
       case Some(config) =>
         val inputsRoot      = config.inputsRoot.toAbsolutePath
-        val fullInputPath   = inputsRoot.resolve(s"$year/Day$day.${config.inputName}.txt")
-        val fullAnswersPath = inputsRoot.resolve(s"$year/Day$day.${config.inputName}.answers.txt")
+        val fullInputPath   = inputsRoot.resolve(f"$year/Day$day%02d.${config.inputName}.txt")
+        val fullAnswersPath = inputsRoot.resolve(f"$year/Day$day%02d.${config.inputName}.answers.txt")
 
         val (input, parseTime) = await(timed(IOs(parseInput(Files.readString(fullInputPath)))))
         await(Consoles.println(s"Parse time: ${parseTime.toMillis.toDouble / 1_000}s"))

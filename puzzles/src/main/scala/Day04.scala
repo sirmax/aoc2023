@@ -2,7 +2,7 @@ import kyo.>
 import kyo.apps.App.Effects
 import kyo.tries.Tries
 
-object Day4 extends util.AocApp(2023, 4) {
+object Day04 extends util.AocApp(2023, 4) {
   case class Input(cards: Seq[Card])
 
   case class Card(n: Int, winning: Seq[Int], have: Seq[Int]) {

@@ -1,7 +1,7 @@
 import kyo.>
 import kyo.apps.App.Effects
 
-object Day2 extends util.AocApp(2023, 2) {
+object Day02 extends util.AocApp(2023, 2) {
   case class Input(games: List[Game])
 
   def parseInput(s: String): Input = {

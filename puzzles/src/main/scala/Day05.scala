@@ -7,7 +7,7 @@ import kyo.tries.Tries
 import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 
-object Day5 extends util.AocApp(2023, 5) {
+object Day05 extends util.AocApp(2023, 5) {
   case class Input(seeds: NonEmptyList[Long], mappings: NonEmptyList[Mapping])
   case class Mapping(name: String, ranges: NonEmptyList[Range])
   case class Range(dst: Long, src: Long, length: Long) {

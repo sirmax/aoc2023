@@ -4,7 +4,7 @@ import kyo.>
 import kyo.apps.App.Effects
 import kyo.tries.Tries
 
-object Day7 extends util.AocApp(2023, 7) {
+object Day07 extends util.AocApp(2023, 7) {
   given orderFromOrdering[A: Ordering]: cats.kernel.Order[A] = cats.kernel.Order.fromOrdering(implicitly)
 
   private def reverse[A](using oa: Ordering[A]): Ordering[A] = oa.reverse

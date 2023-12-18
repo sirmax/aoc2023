@@ -4,7 +4,7 @@ import kyo.>
 import kyo.apps.App.Effects
 import kyo.tries.Tries
 
-object Day6 extends util.AocApp(2023, 6) {
+object Day06 extends util.AocApp(2023, 6) {
   case class Input(times: NonEmptyList[Long], distances: NonEmptyList[Long]) {
     val races: NonEmptyList[Race] = (times zip distances).map(Race.apply)
   }
