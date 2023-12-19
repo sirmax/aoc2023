@@ -19,11 +19,7 @@ object Day00 extends util.AocApp(2023, 0) {
       Input()
     }
 
-    input
-      .parseAll(s)
-      .leftMap(e => s"$e ${ e.input.map(s => s.slice(e.failedAtOffset, e.failedAtOffset + 32)) }")
-      .fold(Tries.fail, identity)
-  }
+    input.parseAll(s).leftMap(e => throw new IllegalArgumentException(s"Failed to parse\n${e.show}")).merge  }
 
   def part1(input: Input): String > Effects = {
     println(input.show)
