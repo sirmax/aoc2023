@@ -1,8 +1,13 @@
 package aoc.cartesian
 
 case class Coord(cs: CoordSpace, idx: Int) {
-  def r: Int = idx / cs.w
-  def c: Int = idx % cs.w
+  def x: Int = idx % cs.w
+  def y: Int = idx / cs.w
+
+  def r: Int = y
+  def c: Int = x
+
+  def xy: (Int, Int) = (x, y)
   def rc: (Int, Int) = (r, c)
 
   def next(dir: Direction): Option[Coord] = nextWrap(dir).toOption
