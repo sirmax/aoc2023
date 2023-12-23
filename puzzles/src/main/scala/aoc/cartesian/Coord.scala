@@ -1,6 +1,8 @@
 package aoc.cartesian
 
 case class Coord(cs: CoordSpace, idx: Int) {
+  override def toString: String = s"$xy:$idx"
+
   def x: Int = idx % cs.w
   def y: Int = idx / cs.w
 
