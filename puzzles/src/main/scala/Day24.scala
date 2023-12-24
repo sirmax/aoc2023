@@ -68,9 +68,9 @@ object Day24 extends util.AocApp(2023, 24) {
         .toList
         .sortBy(x => (x._1, x._2.size))
 
-    println(s"x: ${parallel(_.vx, _.px)}")
-    println(s"y: ${parallel(_.vy, _.py)}")
-    println(s"z: ${parallel(_.vz, _.pz)}")
+    // println(s"x: ${parallel(_.vx, _.px)}")
+    // println(s"y: ${parallel(_.vy, _.py)}")
+    // println(s"z: ${parallel(_.vz, _.pz)}")
 
     def foo(name: String, vel: Stone => BigDecimal, ord: Stone => BigDecimal) = {
       val groups = parallel(vel, ord)
@@ -87,7 +87,8 @@ object Day24 extends util.AocApp(2023, 24) {
               //            = d/t + v
               val divisors = integerDivisors(d)
               val vs =
-                divisors.flatMap(t => List(v.sign * (d / t + v.abs), -v.sign * (d / t - v.abs)))
+                divisors
+                  .flatMap(t => List(v.sign * (d / t + v.abs), -v.sign * (d / t - v.abs)))
                   // technically, 0 is a viable value, at least for x and y, but we're not ready for it.
                   .filter(_ != 0)
               // println(s"d=$d v=$v factors=$factors divisors=$divisors vs=$vs")
@@ -97,21 +98,54 @@ object Day24 extends util.AocApp(2023, 24) {
         }
         .reduce(_ intersect _)
 
+      // x = p + v*t; t = (x - p)/v
+      // ord(s) + vel(s) * t = p + v*t
+      // ord(s) + (vel(s) - v)*t(s) - p = 0
+      //
+      // (x - p)/v = (x - ord(s))/vel(s)
+      // x - p = (x - ord(s))*v/vel(s)
+      // x*vel(s) - p*vel(s) = x*v - ord(s)*v
+      // x*(vel(s) - v) - p*vel(s) + ord(s)*v = 0
+
+      def ordsT(t: Int) = input.hail.iterator.map(s => ord(s) + t * vel(s))
+
       vs.toList
-        .flatMap { v =>
+        .map { v =>
+
+          // vs - v = dv
+          // dv < 0  -- stone below hail -- hail above stone
+          // dv > 0  -- stone above hail -- hail below stone
+          // dv == 0 -- exact match
+
+          val o_v_dv = input.hail
+            // .map(s => (ord(s), vel(s), spire.math.lcm(vel(s).toBigInt.abs, v.toBigInt.abs)))
+            .map(s => (ord(s), vel(s), vel(s) - v))
+            .sortBy((_, _, dv) => dv)
+          // .tapEach { (ordS, velS, dv) =>
+          //   println(s"$name: ord(s)=$ordS vel(s)=$velS dv=$dv")
+          // }
+          val hailAboveStone = o_v_dv.filter((_, _, dv) => dv < 0)
+          val hailBelowStone = o_v_dv.filter((_, _, dv) => dv > 0)
+
+          println(
+            s"$name: stone in (${hailBelowStone.maxByOption((o, _, _) => o)}, ${hailAboveStone.minByOption((o, _, _) => o)})",
+          )
+          // .groupBy((_, _, dv) => dv)
+          // .tapEach { (dv, group) =>
+          //   if (group.size > 1) { println(s"$name: lcmV=$lcmV group=$group")}
+          // }
+
           // println(s"$name: v=$v ${spire.math.prime.factor(v.toBigInt)}")
-          val divisors = integerDivisors(v)
+          // val divisors = integerDivisors(v)
           // val divisors = List.iterate(BigDecimal(0), 100 * v.abs.toInt + 1)(_ + 1 )
-          val ordsT1 = input.hail.iterator.map(s => ord(s) + vel(s))
+          val t = 1
           if (v > 0) {
-            val base = ordsT1.min
-            divisors.map(d => v -> (base - v - d))
-          }
-          else if (v < 0) {
-            val base = ordsT1.max
-            divisors.map(d => v -> (base - v + d))
-          }
-          else {
+            val base = ordsT(t).min
+            v -> (base - t * v)
+          } else if (v < 0) {
+            val base = ordsT(t).max
+            v -> (base - t * v)
+          } else {
             sys.error(s"I'm not ready for 0 velocity!")
           }
         }
@@ -130,11 +164,10 @@ object Day24 extends util.AocApp(2023, 24) {
     }
 
     val x = foo("x", _.vx, _.px)
-    val y = foo("y", _.vy, _.py)
-    val z = foo("z", _.vz, _.pz)
-
     println(s"x: $x")
+    val y = foo("y", _.vy, _.py)
     println(s"y: $y")
+    val z = foo("z", _.vz, _.pz)
     println(s"z: $z")
 
     val result = (x.map(_._1._2), y.map(_._1._2), z.map(_._1._2))
