@@ -60,7 +60,60 @@ object Day24 extends util.AocApp(2023, 24) {
   }
 
   def part2(input: Input): String > Effects = {
-    val result = "???"
+    def parallel(v: Stone => BigDecimal, ord: Stone => BigDecimal) =
+      input.hail
+        .groupBy(v)
+        .filter(_._2.size > 1)
+        .map((v, stones) => v -> stones.map(ord))
+        .toList
+        .sortBy(x => (x._1, x._2.size))
+
+    println(s"x: ${parallel(_.vx, _.px)}")
+    println(s"y: ${parallel(_.vy, _.py)}")
+    println(s"z: ${parallel(_.vz, _.pz)}")
+
+    def foo(vel: Stone => BigDecimal, ord: Stone => BigDecimal) = {
+      val groups = parallel(vel, ord)
+      val vs = groups.map { (v, ords) =>
+        ords
+          .combinations(2)
+          .map { pair =>
+            val List(o1, o2) = pair
+            val d            = (o1 - o2).abs
+            (1 to 1_000_000).flatMap(t => List((d + t * v) / t, (d - t * v) / -t).filter(_ % 1 == 0)).filter(_.abs > 0).toSet
+          }
+          .reduce(_ intersect _)
+      }.reduce(_ intersect _)
+
+      vs
+        .toList
+        .map { v =>
+          val ordsT1 = input.hail.iterator.map(s => ord(s) + vel(s))
+          if (v > 0) v -> (ordsT1.min - v)
+          else v -> (ordsT1.max - v)
+      }
+        .mapFilter { (v, p) =>
+          input.hail
+            // .tapEach(s => println(s"mapFilter($v, $p): $s (vel(s) - v) = (${vel(s)} - $v} = ${vel(s) - v}"))
+            .fproductLeft(s => (vel(s) - v).some.filter(_ != 0).map((p - ord(s)) / _).orElse(BigDecimal(0).some).filter(_ % 1 == 0))
+            .some
+            .mapFilter(x => Option.when(x.forall((t, _) => t.isDefined))(x.map((t, s) => t.get -> s).sortBy((t, _) => t)))
+            .tupleLeft((v, p))
+        }
+    }
+
+    val x = foo(_.vx, _.px)
+    val y = foo(_.vy, _.py)
+    val z = foo(_.vz, _.pz)
+
+    println(s"x: $x")
+    println(s"y: $y")
+    println(s"z: $z")
+
+    val result = (x.map(_._1._2), y.map(_._1._2), z.map(_._1._2))
+      .mapN(_ + _ + _)
+      .tapEach(println)
+      .head
     s"$result"
   }
 }
