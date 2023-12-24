@@ -80,7 +80,21 @@ object Day24 extends util.AocApp(2023, 24) {
           .map { pair =>
             val List(o1, o2) = pair
             val d            = (o1 - o2).abs
-            (1 to 1_000_000).flatMap(t => List((d + t * v) / t, (d - t * v) / -t).filter(_ % 1 == 0)).filter(_.abs > 0).toSet
+            // v(stone) = (d ± v*t) / t
+            // same direction:
+            //   v(stone) = (d + v*t) / t
+            //            = d/t + v
+            val factors = spire.math.prime.factor(d.toBigInt)
+            val xxx = factors
+              .toList
+              .flatMap((f, n) => List.fill(n)(f.toBigDecimal))
+            val divisors = BigDecimal(1) :: List.range(1, xxx.size + 1).flatMap(n => xxx.combinations(n).map(_.product))
+              // .toList.flatMap((f, n) => (1 to n).map(n => f.toBigDecimal * n))
+            // val factors = BigDecimal(1) :: spire.math.prime.factor(d.toBigInt).elements
+            //   .toList.flatMap((f, n) => (1 to n).map(n => f.toBigDecimal * n))
+            val vs = divisors.flatMap(t => List(v.sign * (d / t + v.abs), -v.sign * (d / t - v.abs))).filter(_ != 0)
+            println(s"d=$d v=$v factors=$factors divisors=$divisors vs=$vs")
+            vs.toSet
           }
           .reduce(_ intersect _)
       }.reduce(_ intersect _)
