@@ -33,7 +33,28 @@ object Day24 extends util.AocApp(2023, 24) {
 
   def part1(input: Input): String > Effects = {
     // println(input.show)
-    val result = "???"
+
+    def cross(s1: Stone, s2: Stone) = {
+      // x = ((vy1 * vx2 * px1) + (vx1 * vx2 * py2) - (vx1 * vx2 * py1) - (vx1 * vy2 * px2)) / (vy1 * vx2 - vx1 * vy2)
+      // format: off
+      val x = ((s1.vy * s2.vx * s1.px) + (s1.vx * s2.vx * s2.py) - (s1.vx * s2.vx * s1.py) - (s1.vx * s2.vy * s2.px)) / (s1.vy * s2.vx - s1.vx * s2.vy).toDouble
+      val y = ((s1.vx * s2.vy * s1.py) + (s1.vy * s2.vy * s2.px) - (s1.vy * s2.vy * s1.px) - (s1.vy * s2.vx * s2.py)) / (s1.vx * s2.vy - s1.vy * s2.vx).toDouble
+      // format: on
+      (x, y)
+    }
+    val result = input.hail.combinations(2).count { s1_s2 =>
+      val List(s1, s2) = s1_s2
+      val xy @ (x, y)  = cross(s1, s2)
+      def inTestArea =
+        x >= input.testArea.min && x <= input.testArea.max && y >= input.testArea.min && y <= input.testArea.max
+      def inFuture =
+        x >= s1.px * s1.vx.sign && y >= s1.py * s1.vy.sign && x >= s2.px * s2.vx.sign && y >= s2.py * s2.vy.sign
+      val result = inTestArea && inFuture
+      // println(s"$result: cross($s1, $s2) = $xy")
+      result
+    }
+
+    // assert(result > 9277)
     s"$result"
   }
 
