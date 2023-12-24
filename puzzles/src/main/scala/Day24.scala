@@ -72,53 +72,66 @@ object Day24 extends util.AocApp(2023, 24) {
     println(s"y: ${parallel(_.vy, _.py)}")
     println(s"z: ${parallel(_.vz, _.pz)}")
 
-    def foo(vel: Stone => BigDecimal, ord: Stone => BigDecimal) = {
+    def foo(name: String, vel: Stone => BigDecimal, ord: Stone => BigDecimal) = {
       val groups = parallel(vel, ord)
-      val vs = groups.map { (v, ords) =>
-        ords
-          .combinations(2)
-          .map { pair =>
-            val List(o1, o2) = pair
-            val d            = (o1 - o2).abs
-            // v(stone) = (d ± v*t) / t
-            // same direction:
-            //   v(stone) = (d + v*t) / t
-            //            = d/t + v
-            val factors = spire.math.prime.factor(d.toBigInt)
-            val xxx = factors
-              .toList
-              .flatMap((f, n) => List.fill(n)(f.toBigDecimal))
-            val divisors = BigDecimal(1) :: List.range(1, xxx.size + 1).flatMap(n => xxx.combinations(n).map(_.product))
-              // .toList.flatMap((f, n) => (1 to n).map(n => f.toBigDecimal * n))
-            // val factors = BigDecimal(1) :: spire.math.prime.factor(d.toBigInt).elements
-            //   .toList.flatMap((f, n) => (1 to n).map(n => f.toBigDecimal * n))
-            val vs = divisors.flatMap(t => List(v.sign * (d / t + v.abs), -v.sign * (d / t - v.abs))).filter(_ != 0)
-            println(s"d=$d v=$v factors=$factors divisors=$divisors vs=$vs")
-            vs.toSet
-          }
-          .reduce(_ intersect _)
-      }.reduce(_ intersect _)
+      val vs = groups
+        .map { (v, ords) =>
+          ords
+            .combinations(2)
+            .map { pair =>
+              val List(o1, o2) = pair
+              val d            = (o1 - o2).abs
+              // v(stone) = (d ± v*t) / t
+              // same direction:
+              //   v(stone) = (d + v*t) / t
+              //            = d/t + v
+              val divisors = integerDivisors(d)
+              val vs =
+                divisors.flatMap(t => List(v.sign * (d / t + v.abs), -v.sign * (d / t - v.abs)))
+                  // technically, 0 is a viable value, at least for x and y, but we're not ready for it.
+                  .filter(_ != 0)
+              // println(s"d=$d v=$v factors=$factors divisors=$divisors vs=$vs")
+              vs.toSet
+            }
+            .reduce(_ intersect _)
+        }
+        .reduce(_ intersect _)
 
-      vs
-        .toList
-        .map { v =>
+      vs.toList
+        .flatMap { v =>
+          // println(s"$name: v=$v ${spire.math.prime.factor(v.toBigInt)}")
+          val divisors = integerDivisors(v)
+          // val divisors = List.iterate(BigDecimal(0), 100 * v.abs.toInt + 1)(_ + 1 )
           val ordsT1 = input.hail.iterator.map(s => ord(s) + vel(s))
-          if (v > 0) v -> (ordsT1.min - v)
-          else v -> (ordsT1.max - v)
-      }
+          if (v > 0) {
+            val base = ordsT1.min
+            divisors.map(d => v -> (base - v - d))
+          }
+          else if (v < 0) {
+            val base = ordsT1.max
+            divisors.map(d => v -> (base - v + d))
+          }
+          else {
+            sys.error(s"I'm not ready for 0 velocity!")
+          }
+        }
         .mapFilter { (v, p) =>
           input.hail
             // .tapEach(s => println(s"mapFilter($v, $p): $s (vel(s) - v) = (${vel(s)} - $v} = ${vel(s) - v}"))
-            .fproductLeft(s => (vel(s) - v).some.filter(_ != 0).map((p - ord(s)) / _).orElse(BigDecimal(0).some).filter(_ % 1 == 0))
+            .fproductLeft { s =>
+              (vel(s) - v).some.filter(_ != 0).map((p - ord(s)) / _).orElse(BigDecimal(0).some).filter(_ % 1 == 0)
+            }
             .some
-            .mapFilter(x => Option.when(x.forall((t, _) => t.isDefined))(x.map((t, s) => t.get -> s).sortBy((t, _) => t)))
+            .mapFilter(x =>
+              Option.when(x.forall((t, _) => t.isDefined))(x.map((t, s) => t.get -> s).sortBy((t, _) => t)),
+            )
             .tupleLeft((v, p))
         }
     }
 
-    val x = foo(_.vx, _.px)
-    val y = foo(_.vy, _.py)
-    val z = foo(_.vz, _.pz)
+    val x = foo("x", _.vx, _.px)
+    val y = foo("y", _.vy, _.py)
+    val z = foo("z", _.vz, _.pz)
 
     println(s"x: $x")
     println(s"y: $y")
@@ -128,6 +141,15 @@ object Day24 extends util.AocApp(2023, 24) {
       .mapN(_ + _ + _)
       .tapEach(println)
       .head
+
+    // assert(result > 625890197021615L, s"FALSE: $result > 625890197021615L")
     s"$result"
+  }
+
+  private def integerDivisors(d: BigDecimal): List[BigDecimal] = {
+    val factors = spire.math.prime.factor(d.toBigInt)
+    val xxx = factors.toList
+      .flatMap((f, n) => List.fill(n)(f.toBigDecimal))
+    BigDecimal(1) :: List.range(1, xxx.size + 1).flatMap(n => xxx.combinations(n).map(_.product))
   }
 }
