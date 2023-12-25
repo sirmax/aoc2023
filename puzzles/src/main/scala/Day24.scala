@@ -156,22 +156,60 @@ object Day24 extends util.AocApp(2023, 24) {
 
           // println(s"$name: find hailAtT(?)=${LazyList.iterate(BigDecimal(1))(_ * 2).collectFirstSome(hailAtT)}")
 
-          def binSearch(test: BigInt => Boolean) = {
-            val highBound = LazyList.iterate(BigInt(1))(_ * 2).find(test).head
-            @tailrec def recur(min: BigInt, max: BigInt): BigInt = {
+          def binSearch(i0: BigInt, test: BigInt => Int): Either[BigInt, BigInt] = {
+            val highBound = i0 + LazyList.iterate(BigInt(1))(_ * 2).find(t => test(i0 + t) >= 0).head
+            println(s"$name: i0=$i0 highBound=$highBound")
+            @tailrec def recur(min: BigInt, max: BigInt): Either[BigInt, BigInt] = {
               val mid = min + (max - min) / 2
-              if (mid == min) max
+              if (mid == min) max.asLeft
               else {
-                if (test(mid)) recur(min, mid) else recur(mid, max)
+                test(mid) match {
+                  case 0 => mid.asRight
+                  case i => if (i > 0) recur(min, mid) else recur(mid, max)
+                }
               }
             }
-            recur(0, highBound)
+            recur(i0, highBound)
           }
 
-          def binSearchBD(test: BigDecimal => Boolean): BigDecimal = BigDecimal(binSearch(t => test(BigDecimal(t))))
+          def binSearchBD(i0: BigDecimal, test: BigDecimal => Int): Either[BigDecimal, BigDecimal] =
+            binSearch(i0.toBigInt, t => test(BigDecimal(t))).bimap(BigDecimal.apply, BigDecimal.apply)
 
-          val tHailSidesFlip = binSearchBD(t => hailAtT(t).isDefined)
-          println(s"$name: tHailSidesFlip=$tHailSidesFlip hailAtT(t)=${hailAtT(tHailSidesFlip)}")
+          def timeOfFirstIntersection(ps: BigDecimal): BigDecimal = {
+            // x = p + v*t  ->  ps + vs*t = pi + vi*t  -> t = (pi - ps) / (vs - vi)
+            input.hail.iterator.flatMap(s => ((ord(s) - ps) / (v - vel(s))).some.filter(_ > 0)).minOption.getOrElse(0)
+          }
+
+          def test(ps: BigDecimal): Int = {
+            val t      = timeOfFirstIntersection(ps)
+            val xStone = ps + t * v
+            println(s"$name: test($ps)=??? t=$t xStone=$xStone")
+            val result = LazyList
+              .from(input.hail.iterator)
+              .scanLeft(0) {
+                case (1, s) => 1
+                case (0, s) =>
+                  val x = ord(s) + vel(s) * t
+                  println(s"$name: test($ps)=??? (0) t=$t xStone=$xStone x=$x hailAboveAtT0(s)=${hailAboveAtT0(s)}")
+                  if (x == xStone) 0
+                  else if ((hailAboveAtT0(s) && x < xStone) || (x > xStone)) 1
+                  else -1
+                case (_, s) =>
+                  val x = ord(s) + vel(s) * t
+                  println(s"$name: test($ps)=??? (-1) t=$t xStone=$xStone x=$x hailAboveAtT0(s)=${ hailAboveAtT0(s) }")
+                  if ((hailAboveAtT0(s) && x < xStone) || (!hailAboveAtT0(s) && x > xStone)) 1
+                  else -1
+              }
+              .lastOption
+              .getOrElse(0)
+            println(s"$name: test($ps)=$result t=$t xStone=$xStone")
+            result
+          }
+
+          val huh = binSearchBD(hailBelowAtT0.maxByOption(ord).map(ord).getOrElse(0), test)
+          println(s"$name: huh=$huh")
+          // val tHailSidesFlip = binSearchBD(t => hailAtT(t).as(1).getOrElse(-1))
+          // println(s"$name: tHailSidesFlip=$tHailSidesFlip hailAtT(t)=${hailAtT(tHailSidesFlip.merge)}")
 
           // .groupBy((_, _, dv) => dv)
           // .tapEach { (dv, group) =>
