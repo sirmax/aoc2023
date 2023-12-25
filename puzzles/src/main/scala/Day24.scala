@@ -158,71 +158,90 @@ object Day24 extends util.AocApp(2023, 24) {
 
           // println(s"$name: find hailAtT(?)=${LazyList.iterate(BigDecimal(1))(_ * 2).collectFirstSome(hailAtT)}")
 
-          def binSearch(min: BigInt, max: BigInt, test: BigInt => Int): Either[BigInt, BigInt] = {
-            // NOTE: not matching test=0 in min bounds to avoid hitting one of possible many 0 results.
-            @tailrec def recur(min: BigInt, max: BigInt): Either[BigInt, BigInt] = {
-              val mid = min + (max - min) / 2
-              if (mid == min) {
-                if (test(max) == 0) max.asRight else max.asLeft
-              } else {
-                test(mid) match {
-                  case 0 => mid.asRight
-                  case i => if (i > 0) recur(min, mid) else recur(mid, max)
+          enum TestResult:
+            case Match, TooLow, TooHigh, Inconclusive
+
+          def binSearch(min: BigInt, max: BigInt, test: BigInt => TestResult): Either[BigInt, BigInt] = {
+            def mid(min: BigInt, max: BigInt) = min + (max - min) / 2
+
+            @tailrec def recur(min: BigInt, max: BigInt, focus: BigInt, direction: Int): Either[BigInt, BigInt] = {
+              println(s"$name binSearch($min, $max, $focus, $direction)")
+
+              if (focus == min) {
+                test(max) match {
+                  case TestResult.Match => max.asRight
+                  case _                => max.asLeft
                 }
+              } else {
+                test(focus) match {
+                  case TestResult.Match        => focus.asRight
+                  case TestResult.TooLow       => recur(focus, max, mid(focus, max), +1)
+                  case TestResult.TooHigh      => recur(min, focus, mid(min, focus), -1)
+                  case TestResult.Inconclusive => recur(min, max, focus + direction, direction)
+                  // case TestResult.Inconclusive =>
+                  //   recur(min, max, if (direction > 0) mid(min, focus) else mid (focus, max), direction)
+                }
+                // {
+                //   case => mid.asRight
+                //   case i => if (i > 0) recur(min, mid) else recur(mid, max)
+                // }
               }
             }
-            recur(min, max)
+            recur(min, max, mid(min, max), direction = 1)
           }
 
-          def binSearchBD(min: BigDecimal, max: BigDecimal, test: BigDecimal => Int): Either[BigDecimal, BigDecimal] =
+          def binSearchBD(
+            min: BigDecimal,
+            max: BigDecimal,
+            test: BigDecimal => TestResult,
+          ): Either[BigDecimal, BigDecimal] =
             binSearch(min.toBigInt, max.toBigInt, t => test(BigDecimal(t))).bimap(BigDecimal.apply, BigDecimal.apply)
 
-          def timeOfFirstIntersection(ps: BigDecimal): BigDecimal = {
-            // x = p + v*t  ->  ps + vs*t = pi + vi*t  -> t = (pi - ps) / (vs - vi)
-            input.hail.iterator.flatMap(s => ((ord(s) - ps) / (v - vel(s))).some.filter(_ > 0)).minOption.getOrElse(0)
-          }
-
           // NOTE: May yield multiple 0, for example on "sample" X axis both 28 and 32 work
-          def test(ps: BigDecimal): Int = {
-            val intersections = input.hail.iterator.map { s =>
+          def test(ps: BigDecimal): TestResult = {
+            def intersections = LazyList.from(input.hail).map { s =>
               val dv = v - vel(s)
               if (dv == 0) {
-                val res = if (ps < ord(s)) -1 else if (ps == ord(s)) 0 else 1
-                println(
-                  s"$name test($ps, $v, ${ ord(s) }, ${ vel(s) })=$res",
-                )
+                val res =
+                  if (ps < ord(s)) TestResult.TooLow
+                  else if (ps == ord(s)) TestResult.Match
+                  else TestResult.TooHigh
+                // println(
+                //   s"$name test($ps, $v, ${ord(s)}, ${vel(s)})=$res",
+                // )
                 res
               } else {
-                val t = (ord(s) - ps) / dv
-                val tInt = BigDecimal(t.toBigInt)
-                val x = ord(s) + vel(s) * t
-                val xTInt = ord(s) + vel(s) * tInt
-                val xStone = ps + v * t
+                val t          = (ord(s) - ps) / dv
+                val tInt       = BigDecimal(t.toBigInt)
+                val x          = ord(s) + vel(s) * t
+                val xTInt      = ord(s) + vel(s) * tInt
+                val xStone     = ps + v * t
                 val xStoneTInt = ps + v * tInt
 
                 val res =
-                  if (t < 0) dv.signum
-                  // else if (x <= 0) 1
-                  // else if (t == tInt && x == xStone) 0
-                  else if (t == tInt && x == xStone) 0
-                  else if ((hailAboveAtT0(s) && xTInt < xStoneTInt) || (!hailAboveAtT0(s) && xTInt > xStoneTInt)) 1
-                  else -1
+                  if (t < 1) if (dv > 0) TestResult.TooHigh else TestResult.TooLow
+                  else if (t == tInt && x == xStone) TestResult.Match
+                  else if (x < 0) {
+                    if (vel(s) < 0) if (dv < 0) TestResult.TooHigh else TestResult.TooLow
+                    else if (dv < 0) TestResult.TooLow else TestResult.TooHigh
+                  }
+                  else if (hailAboveAtT0(s) && xTInt < xStoneTInt) TestResult.TooHigh
+                  else if (hailBelowAtT0(s) && xTInt > xStoneTInt) TestResult.TooLow
+                  else TestResult.Inconclusive
                 println(
-                  s"$name test($ps, $v, ${ ord(s) }, ${ vel(s) })=$res: t=$t ($tInt) x=$x ($xTInt) xStone=$xStone ($xStoneTInt) hailAboveAtT0(s)=${ hailAboveAtT0(s) }",
+                  s"$name test($ps, $v, ${ord(s)}, ${vel(s)})=$res: t=$t ($tInt) x=$x ($xTInt) xStone=$xStone ($xStoneTInt) hailAboveAtT0(s)=${hailAboveAtT0(s)}",
                 )
                 res
               }
             }
-            val res = LazyList
-              .from(intersections)
-              .scanLeft(0) {
-                case (1, _) => 1
-                case (0, c) => c
-                case (_, 0) => -1
-                case (_, c) => c
+            type Foo[A] = Either[TestResult, A]
+            val res = intersections
+              .foldLeftM[Foo, TestResult](TestResult.Match) {
+                case (_, r @ (TestResult.TooLow | TestResult.TooHigh)) => r.asLeft
+                case (TestResult.Inconclusive, TestResult.Match)       => TestResult.Inconclusive.asRight
+                case (_, r)                                            => r.asRight
               }
-              .lastOption
-              .getOrElse(0)
+              .merge
             println(s"$name test($ps, $v)=$res")
             res
           }
@@ -230,7 +249,7 @@ object Day24 extends util.AocApp(2023, 24) {
           val huh = binSearchBD(input.testArea.min, input.testArea.max, test)
           // val huh = binSearchBD(hailBelowAtT0.maxByOption(ord).map(ord).getOrElse(0), test)
           // val huh = binSearchBD(0, test)
-          println(s"$name: huh=$huh")
+          println(s"$name: huh(v=$v)=$huh")
 
           huh.toOption
         }
