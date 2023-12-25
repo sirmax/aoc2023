@@ -5,6 +5,7 @@ import kyo.>
 import kyo.apps.App.Effects
 import kyo.tries.Tries
 
+import java.math.MathContext
 import scala.annotation.tailrec
 
 object Day24 extends util.AocApp(2023, 24) {
@@ -132,10 +133,10 @@ object Day24 extends util.AocApp(2023, 24) {
           val hailAboveAtT0 = hailAboveStone.map((s, _, _, _) => s).toSet
           val hailBelowAtT0 = hailBelowStone.map((s, _, _, _) => s).toSet
 
-          println(
-            s"$name: stone in (${hailBelowStone.maxByOption((_, o, _, _) => o)}, ${hailAboveStone
-                .minByOption((_, o, _, _)                                => o)})",
-          )
+          // println(
+          //   s"$name: stone in (${hailBelowStone.maxByOption((_, o, _, _) => o)}, ${hailAboveStone
+          //       .minByOption((_, o, _, _)                                => o)})",
+          // )
 
           def hailAtT(t: BigDecimal) = {
             input.hail
@@ -157,19 +158,23 @@ object Day24 extends util.AocApp(2023, 24) {
           // println(s"$name: find hailAtT(?)=${LazyList.iterate(BigDecimal(1))(_ * 2).collectFirstSome(hailAtT)}")
 
           def binSearch(i0: BigInt, test: BigInt => Int): Either[BigInt, BigInt] = {
-            val highBound = i0 + LazyList.iterate(BigInt(1))(_ * 2).find(t => test(i0 + t) >= 0).head
-            println(s"$name: i0=$i0 highBound=$highBound")
+            // NOTE: not matching test=0 in min bounds to avoid hitting one of possible many 0 results.
+            val minBound =
+              i0 + LazyList.iterate(BigInt(1))(_ * 2).takeWhile(t => test(i0 + t) < 0).lastOption.getOrElse(i0)
+            val maxBound = minBound + LazyList.iterate(BigInt(1))(_ * 2).find(t => test(minBound + t) >= 0).head
+            println(s"$name: i0=$i0 minBound=$minBound maxBound=$maxBound")
             @tailrec def recur(min: BigInt, max: BigInt): Either[BigInt, BigInt] = {
               val mid = min + (max - min) / 2
-              if (mid == min) max.asLeft
-              else {
+              if (mid == min) {
+                if (test(max) == 0) max.asRight else max.asLeft
+              } else {
                 test(mid) match {
                   case 0 => mid.asRight
                   case i => if (i > 0) recur(min, mid) else recur(mid, max)
                 }
               }
             }
-            recur(i0, highBound)
+            recur(minBound, maxBound)
           }
 
           def binSearchBD(i0: BigDecimal, test: BigDecimal => Int): Either[BigDecimal, BigDecimal] =
@@ -180,33 +185,43 @@ object Day24 extends util.AocApp(2023, 24) {
             input.hail.iterator.flatMap(s => ((ord(s) - ps) / (v - vel(s))).some.filter(_ > 0)).minOption.getOrElse(0)
           }
 
+          // NOTE: May yield multiple 0, for example on "sample" X axis both 28 and 32 work
           def test(ps: BigDecimal): Int = {
-            val t      = timeOfFirstIntersection(ps)
-            val xStone = ps + t * v
-            println(s"$name: test($ps)=??? t=$t xStone=$xStone")
-            val result = LazyList
-              .from(input.hail.iterator)
+            val intersections = input.hail.iterator.map { s =>
+              val t          = (ord(s) - ps) / (v - vel(s))
+              val tInt       = BigDecimal(t.toBigInt)
+              val x          = ord(s) + vel(s) * t
+              val xTInt      = ord(s) + vel(s) * tInt
+              val xStone     = ps + v * t
+              val xStoneTInt = ps + v * tInt
+
+              val res =
+                if (t < 0) v.signum
+                else if (x <= 0) 1
+                else if (t == tInt && x == xStone) 0
+                else if ((hailAboveAtT0(s) && xTInt < xStoneTInt) || (!hailAboveAtT0(s) && xTInt > xStoneTInt)) 1
+                else -1
+              println(
+                s"$name test($ps, $v, ${ord(s)}, ${vel(s)})=$res: t=$t ($tInt) x=$x ($xTInt) xStone=$xStone ($xStoneTInt) hailAboveAtT0(s)=${hailAboveAtT0(s)}",
+              )
+              res
+            }
+            val res = LazyList
+              .from(intersections)
               .scanLeft(0) {
-                case (1, s) => 1
-                case (0, s) =>
-                  val x = ord(s) + vel(s) * t
-                  println(s"$name: test($ps)=??? (0) t=$t xStone=$xStone x=$x hailAboveAtT0(s)=${hailAboveAtT0(s)}")
-                  if (x == xStone) 0
-                  else if ((hailAboveAtT0(s) && x < xStone) || (x > xStone)) 1
-                  else -1
-                case (_, s) =>
-                  val x = ord(s) + vel(s) * t
-                  println(s"$name: test($ps)=??? (-1) t=$t xStone=$xStone x=$x hailAboveAtT0(s)=${ hailAboveAtT0(s) }")
-                  if ((hailAboveAtT0(s) && x < xStone) || (!hailAboveAtT0(s) && x > xStone)) 1
-                  else -1
+                case (1, _) => 1
+                case (0, c) => c
+                case (_, 0) => -1
+                case (_, c) => c
               }
               .lastOption
               .getOrElse(0)
-            println(s"$name: test($ps)=$result t=$t xStone=$xStone")
-            result
+            println(s"$name test($ps, $v)=$res")
+            res
           }
 
           val huh = binSearchBD(hailBelowAtT0.maxByOption(ord).map(ord).getOrElse(0), test)
+          // val huh = binSearchBD(0, test)
           println(s"$name: huh=$huh")
           // val tHailSidesFlip = binSearchBD(t => hailAtT(t).as(1).getOrElse(-1))
           // println(s"$name: tHailSidesFlip=$tHailSidesFlip hailAtT(t)=${hailAtT(tHailSidesFlip.merge)}")
