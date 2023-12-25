@@ -112,8 +112,9 @@ object Day24 extends util.AocApp(2023, 24) {
 
       def ordsT(t: Int) = input.hail.iterator.map(s => ord(s) + t * vel(s))
 
+      println(s"$name possible vs=${vs.toList.sorted}")
       vs.toList
-        .map { v =>
+        .collectFirstSome { v =>
 
           // vs - v = dv
           // dv < 0  -- stone below hail -- hail above stone
@@ -157,12 +158,8 @@ object Day24 extends util.AocApp(2023, 24) {
 
           // println(s"$name: find hailAtT(?)=${LazyList.iterate(BigDecimal(1))(_ * 2).collectFirstSome(hailAtT)}")
 
-          def binSearch(i0: BigInt, test: BigInt => Int): Either[BigInt, BigInt] = {
+          def binSearch(min: BigInt, max: BigInt, test: BigInt => Int): Either[BigInt, BigInt] = {
             // NOTE: not matching test=0 in min bounds to avoid hitting one of possible many 0 results.
-            val minBound =
-              i0 + LazyList.iterate(BigInt(1))(_ * 2).takeWhile(t => test(i0 + t) < 0).lastOption.getOrElse(i0)
-            val maxBound = minBound + LazyList.iterate(BigInt(1))(_ * 2).find(t => test(minBound + t) >= 0).head
-            println(s"$name: i0=$i0 minBound=$minBound maxBound=$maxBound")
             @tailrec def recur(min: BigInt, max: BigInt): Either[BigInt, BigInt] = {
               val mid = min + (max - min) / 2
               if (mid == min) {
@@ -174,11 +171,11 @@ object Day24 extends util.AocApp(2023, 24) {
                 }
               }
             }
-            recur(minBound, maxBound)
+            recur(min, max)
           }
 
-          def binSearchBD(i0: BigDecimal, test: BigDecimal => Int): Either[BigDecimal, BigDecimal] =
-            binSearch(i0.toBigInt, t => test(BigDecimal(t))).bimap(BigDecimal.apply, BigDecimal.apply)
+          def binSearchBD(min: BigDecimal, max: BigDecimal, test: BigDecimal => Int): Either[BigDecimal, BigDecimal] =
+            binSearch(min.toBigInt, max.toBigInt, t => test(BigDecimal(t))).bimap(BigDecimal.apply, BigDecimal.apply)
 
           def timeOfFirstIntersection(ps: BigDecimal): BigDecimal = {
             // x = p + v*t  ->  ps + vs*t = pi + vi*t  -> t = (pi - ps) / (vs - vi)
@@ -188,23 +185,33 @@ object Day24 extends util.AocApp(2023, 24) {
           // NOTE: May yield multiple 0, for example on "sample" X axis both 28 and 32 work
           def test(ps: BigDecimal): Int = {
             val intersections = input.hail.iterator.map { s =>
-              val t          = (ord(s) - ps) / (v - vel(s))
-              val tInt       = BigDecimal(t.toBigInt)
-              val x          = ord(s) + vel(s) * t
-              val xTInt      = ord(s) + vel(s) * tInt
-              val xStone     = ps + v * t
-              val xStoneTInt = ps + v * tInt
+              val dv = v - vel(s)
+              if (dv == 0) {
+                val res = if (ps < ord(s)) -1 else if (ps == ord(s)) 0 else 1
+                println(
+                  s"$name test($ps, $v, ${ ord(s) }, ${ vel(s) })=$res",
+                )
+                res
+              } else {
+                val t = (ord(s) - ps) / dv
+                val tInt = BigDecimal(t.toBigInt)
+                val x = ord(s) + vel(s) * t
+                val xTInt = ord(s) + vel(s) * tInt
+                val xStone = ps + v * t
+                val xStoneTInt = ps + v * tInt
 
-              val res =
-                if (t < 0) v.signum
-                else if (x <= 0) 1
-                else if (t == tInt && x == xStone) 0
-                else if ((hailAboveAtT0(s) && xTInt < xStoneTInt) || (!hailAboveAtT0(s) && xTInt > xStoneTInt)) 1
-                else -1
-              println(
-                s"$name test($ps, $v, ${ord(s)}, ${vel(s)})=$res: t=$t ($tInt) x=$x ($xTInt) xStone=$xStone ($xStoneTInt) hailAboveAtT0(s)=${hailAboveAtT0(s)}",
-              )
-              res
+                val res =
+                  if (t < 0) dv.signum
+                  // else if (x <= 0) 1
+                  // else if (t == tInt && x == xStone) 0
+                  else if (t == tInt && x == xStone) 0
+                  else if ((hailAboveAtT0(s) && xTInt < xStoneTInt) || (!hailAboveAtT0(s) && xTInt > xStoneTInt)) 1
+                  else -1
+                println(
+                  s"$name test($ps, $v, ${ ord(s) }, ${ vel(s) })=$res: t=$t ($tInt) x=$x ($xTInt) xStone=$xStone ($xStoneTInt) hailAboveAtT0(s)=${ hailAboveAtT0(s) }",
+                )
+                res
+              }
             }
             val res = LazyList
               .from(intersections)
@@ -220,42 +227,12 @@ object Day24 extends util.AocApp(2023, 24) {
             res
           }
 
-          val huh = binSearchBD(hailBelowAtT0.maxByOption(ord).map(ord).getOrElse(0), test)
+          val huh = binSearchBD(input.testArea.min, input.testArea.max, test)
+          // val huh = binSearchBD(hailBelowAtT0.maxByOption(ord).map(ord).getOrElse(0), test)
           // val huh = binSearchBD(0, test)
           println(s"$name: huh=$huh")
-          // val tHailSidesFlip = binSearchBD(t => hailAtT(t).as(1).getOrElse(-1))
-          // println(s"$name: tHailSidesFlip=$tHailSidesFlip hailAtT(t)=${hailAtT(tHailSidesFlip.merge)}")
 
-          // .groupBy((_, _, dv) => dv)
-          // .tapEach { (dv, group) =>
-          //   if (group.size > 1) { println(s"$name: lcmV=$lcmV group=$group")}
-          // }
-
-          // println(s"$name: v=$v ${spire.math.prime.factor(v.toBigInt)}")
-          // val divisors = integerDivisors(v)
-          // val divisors = List.iterate(BigDecimal(0), 100 * v.abs.toInt + 1)(_ + 1 )
-          val t = 1
-          if (v > 0) {
-            val base = ordsT(t).min
-            v -> (base - t * v)
-          } else if (v < 0) {
-            val base = ordsT(t).max
-            v -> (base - t * v)
-          } else {
-            sys.error(s"I'm not ready for 0 velocity!")
-          }
-        }
-        .mapFilter { (v, p) =>
-          input.hail
-            // .tapEach(s => println(s"mapFilter($v, $p): $s (vel(s) - v) = (${vel(s)} - $v} = ${vel(s) - v}"))
-            .fproductLeft { s =>
-              (vel(s) - v).some.filter(_ != 0).map((p - ord(s)) / _).orElse(BigDecimal(0).some).filter(_ % 1 == 0)
-            }
-            .some
-            .mapFilter(x =>
-              Option.when(x.forall((t, _) => t.isDefined))(x.map((t, s) => t.get -> s).sortBy((t, _) => t)),
-            )
-            .tupleLeft((v, p))
+          huh.toOption
         }
     }
 
@@ -266,7 +243,7 @@ object Day24 extends util.AocApp(2023, 24) {
     val z = foo("z", _.vz, _.pz)
     println(s"z: $z")
 
-    val result = (x.map(_._1._2), y.map(_._1._2), z.map(_._1._2))
+    val result = (x, y, z)
       .mapN(_ + _ + _)
       .tapEach(println)
       .head
