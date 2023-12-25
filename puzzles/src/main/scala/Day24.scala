@@ -5,6 +5,8 @@ import kyo.>
 import kyo.apps.App.Effects
 import kyo.tries.Tries
 
+import scala.annotation.tailrec
+
 object Day24 extends util.AocApp(2023, 24) {
   case class Input(hail: List[Stone], testArea: TestArea)
 
@@ -91,7 +93,7 @@ object Day24 extends util.AocApp(2023, 24) {
                   .flatMap(t => List(v.sign * (d / t + v.abs), -v.sign * (d / t - v.abs)))
                   // technically, 0 is a viable value, at least for x and y, but we're not ready for it.
                   .filter(_ != 0)
-              // println(s"d=$d v=$v factors=$factors divisors=$divisors vs=$vs")
+              // println(s"d=$d v=$v divisors=$divisors vs=$vs")
               vs.toSet
             }
             .reduce(_ intersect _)
@@ -119,17 +121,58 @@ object Day24 extends util.AocApp(2023, 24) {
 
           val o_v_dv = input.hail
             // .map(s => (ord(s), vel(s), spire.math.lcm(vel(s).toBigInt.abs, v.toBigInt.abs)))
-            .map(s => (ord(s), vel(s), vel(s) - v))
-            .sortBy((_, _, dv) => dv)
-          // .tapEach { (ordS, velS, dv) =>
+            .map(s => (s, ord(s), vel(s), vel(s) - v))
+            .sortBy((_, _, _, dv) => dv)
+          // .tapEach { (s, ordS, velS, dv) =>
           //   println(s"$name: ord(s)=$ordS vel(s)=$velS dv=$dv")
           // }
-          val hailAboveStone = o_v_dv.filter((_, _, dv) => dv < 0)
-          val hailBelowStone = o_v_dv.filter((_, _, dv) => dv > 0)
+          val hailAboveStone = o_v_dv.filter((_, _, _, dv) => dv < 0)
+          val hailBelowStone = o_v_dv.filter((_, _, _, dv) => dv > 0)
+
+          val hailAboveAtT0 = hailAboveStone.map((s, _, _, _) => s).toSet
+          val hailBelowAtT0 = hailBelowStone.map((s, _, _, _) => s).toSet
 
           println(
-            s"$name: stone in (${hailBelowStone.maxByOption((o, _, _) => o)}, ${hailAboveStone.minByOption((o, _, _) => o)})",
+            s"$name: stone in (${hailBelowStone.maxByOption((_, o, _, _) => o)}, ${hailAboveStone
+                .minByOption((_, o, _, _)                                => o)})",
           )
+
+          def hailAtT(t: BigDecimal) = {
+            input.hail
+              .map(s => s -> (ord(s) + vel(s) * t))
+              .sortBy(_._2)
+              // now we have hailstones at time=t, ordered by their ordinate from lowest to highest
+              .sliding2
+              .find {
+                case ((s1, o1), (s2, o2)) =>
+                  (hailBelowAtT0(s1) && hailAboveAtT0(s2) && o1 > o2) ||
+                  (hailBelowAtT0(s2) && hailAboveAtT0(s1) && o2 > o1)
+              }
+          }
+
+          // println(s"$name: hailAtT(0)=${hailAtT(0)}")
+          // println(s"$name: hailAtT(input.testArea.min)=${hailAtT(input.testArea.min)}")
+          // println(s"$name: hailAtT(input.testArea.max)=${hailAtT(input.testArea.max)}")
+
+          // println(s"$name: find hailAtT(?)=${LazyList.iterate(BigDecimal(1))(_ * 2).collectFirstSome(hailAtT)}")
+
+          def binSearch(test: BigInt => Boolean) = {
+            val highBound = LazyList.iterate(BigInt(1))(_ * 2).find(test).head
+            @tailrec def recur(min: BigInt, max: BigInt): BigInt = {
+              val mid = min + (max - min) / 2
+              if (mid == min) max
+              else {
+                if (test(mid)) recur(min, mid) else recur(mid, max)
+              }
+            }
+            recur(0, highBound)
+          }
+
+          def binSearchBD(test: BigDecimal => Boolean): BigDecimal = BigDecimal(binSearch(t => test(BigDecimal(t))))
+
+          val tHailSidesFlip = binSearchBD(t => hailAtT(t).isDefined)
+          println(s"$name: tHailSidesFlip=$tHailSidesFlip hailAtT(t)=${hailAtT(tHailSidesFlip)}")
+
           // .groupBy((_, _, dv) => dv)
           // .tapEach { (dv, group) =>
           //   if (group.size > 1) { println(s"$name: lcmV=$lcmV group=$group")}
