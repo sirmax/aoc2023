@@ -4,6 +4,8 @@ import cats.syntax.all.*
 import kyo.>
 import kyo.apps.App.Effects
 import kyo.tries.Tries
+import spire.math.SafeLong
+import spire.syntax.all.*
 
 import java.math.MathContext
 import scala.annotation.tailrec
@@ -75,7 +77,7 @@ object Day24 extends util.AocApp(2023, 24) {
     // println(s"y: ${parallel(_.vy, _.py)}")
     // println(s"z: ${parallel(_.vz, _.pz)}")
 
-    def foo(name: String, vel: Stone => BigDecimal, ord: Stone => BigDecimal) = {
+    def foo(name: String, vel: Stone => BigDecimal, ord: Stone => BigDecimal): Option[SafeLong] = {
       val groups = parallel(vel, ord)
       val vs = groups
         .map { (v, ords) =>
@@ -94,6 +96,7 @@ object Day24 extends util.AocApp(2023, 24) {
                   .flatMap(t => List(v.sign * (d / t + v.abs), -v.sign * (d / t - v.abs)))
                   // technically, 0 is a viable value, at least for x and y, but we're not ready for it.
                   .filter(_ != 0)
+                  .map(_.toBigInt)
               // println(s"d=$d v=$v divisors=$divisors vs=$vs")
               vs.toSet
             }
@@ -110,7 +113,11 @@ object Day24 extends util.AocApp(2023, 24) {
       // x*vel(s) - p*vel(s) = x*v - ord(s)*v
       // x*(vel(s) - v) - p*vel(s) + ord(s)*v = 0
 
-      def ordsT(t: Int) = input.hail.iterator.map(s => ord(s) + t * vel(s))
+      case class PV(p: SafeLong, v: SafeLong)
+      val pvs = input.hail.map(s => PV(p = ord(s).toBigInt, v = vel(s).toBigInt))
+
+      def ordsT(t: Int) = LazyList.from(input.hail).map(s => ord(s) + t * vel(s))
+      def vels = List.from(input.hail).map(s => vel(s))
 
       println(s"$name possible vs=${vs.toList.sorted}")
       vs.toList
@@ -121,137 +128,52 @@ object Day24 extends util.AocApp(2023, 24) {
           // dv > 0  -- stone above hail -- hail below stone
           // dv == 0 -- exact match
 
-          val o_v_dv = input.hail
-            // .map(s => (ord(s), vel(s), spire.math.lcm(vel(s).toBigInt.abs, v.toBigInt.abs)))
-            .map(s => (s, ord(s), vel(s), vel(s) - v))
-            .sortBy((_, _, _, dv) => dv)
-          // .tapEach { (s, ordS, velS, dv) =>
-          //   println(s"$name: ord(s)=$ordS vel(s)=$velS dv=$dv")
-          // }
-          val hailAboveStone = o_v_dv.filter((_, _, _, dv) => dv < 0)
-          val hailBelowStone = o_v_dv.filter((_, _, _, dv) => dv > 0)
+          val pvsAdjusted = pvs.map(pv => pv.copy(v = pv.v - v))
+          println(s"$name v=$v pvsAdjusted=$pvsAdjusted")
 
-          val hailAboveAtT0 = hailAboveStone.map((s, _, _, _) => s).toSet
-          val hailBelowAtT0 = hailBelowStone.map((s, _, _, _) => s).toSet
+          val sameVelocity = pvsAdjusted.collectFirstSome(_.some.filter(_.v == 0))
 
-          // println(
-          //   s"$name: stone in (${hailBelowStone.maxByOption((_, o, _, _) => o)}, ${hailAboveStone
-          //       .minByOption((_, o, _, _)                                => o)})",
-          // )
-
-          def hailAtT(t: BigDecimal) = {
-            input.hail
-              .map(s => s -> (ord(s) + vel(s) * t))
-              .sortBy(_._2)
-              // now we have hailstones at time=t, ordered by their ordinate from lowest to highest
-              .sliding2
-              .find {
-                case ((s1, o1), (s2, o2)) =>
-                  (hailBelowAtT0(s1) && hailAboveAtT0(s2) && o1 > o2) ||
-                  (hailBelowAtT0(s2) && hailAboveAtT0(s1) && o2 > o1)
+          sameVelocity match {
+            case Some(pv) =>
+              // x = p + v*t
+              // p + v*t = pv.p + pv.v*t
+              // t = (p - pv.p) / (pv.v - v)
+              val pv0 = PV(pv.p, v)
+              def allInExpectedBounds = pvs.forall {
+                case `pv0` => true
+                case pv =>
+                  val t = (pv0.p - pv.p) / (pv.v - pv0.v)
+                  def inFuture = t > 0
+                  def xPositive = pv.p + t * pv.v > 0
+                  inFuture && xPositive
               }
-          }
+              println(s"$name v=$v ZERO CASE: allInExpectedBounds=$allInExpectedBounds")
 
-          // println(s"$name: hailAtT(0)=${hailAtT(0)}")
-          // println(s"$name: hailAtT(input.testArea.min)=${hailAtT(input.testArea.min)}")
-          // println(s"$name: hailAtT(input.testArea.max)=${hailAtT(input.testArea.max)}")
+              Option.when(allInExpectedBounds)(pv.p)
 
-          // println(s"$name: find hailAtT(?)=${LazyList.iterate(BigDecimal(1))(_ * 2).collectFirstSome(hailAtT)}")
+            case None =>
+              val lcm = pvsAdjusted.map(_.v).reduce(spire.math.lcm)
+              val lcmR =
+                pvsAdjusted.map(pv => (pv.v, pv.p % pv.v)).reduce((dr1, dr2) => (lcmWithRemainders(dr1, dr1), 0))
 
-          enum TestResult:
-            case Match, TooLow, TooHigh, Inconclusive
+              val (p, _) = lcmR
 
-          def binSearch(min: BigInt, max: BigInt, test: BigInt => TestResult): Either[BigInt, BigInt] = {
-            def mid(min: BigInt, max: BigInt) = min + (max - min) / 2
+              def tx(i: Int) = {
+                val pv0 = PV(p + i * lcm, v)
 
-            @tailrec def recur(min: BigInt, max: BigInt, focus: BigInt, direction: Int): Either[BigInt, BigInt] = {
-              println(s"$name binSearch($min, $max, $focus, $direction)")
-
-              if (focus == min) {
-                test(max) match {
-                  case TestResult.Match => max.asRight
-                  case _                => max.asLeft
+                pvs.map { pv =>
+                  val t = (pv0.p - pv.p) / (pv.v - pv0.v)
+                  def x = pv.p + t * pv.v
+                  (t, x)
                 }
-              } else {
-                test(focus) match {
-                  case TestResult.Match        => focus.asRight
-                  case TestResult.TooLow       => recur(focus, max, mid(focus, max), +1)
-                  case TestResult.TooHigh      => recur(min, focus, mid(min, focus), -1)
-                  case TestResult.Inconclusive => recur(min, max, focus + direction, direction)
-                  // case TestResult.Inconclusive =>
-                  //   recur(min, max, if (direction > 0) mid(min, focus) else mid (focus, max), direction)
-                }
-                // {
-                //   case => mid.asRight
-                //   case i => if (i > 0) recur(min, mid) else recur(mid, max)
-                // }
               }
-            }
-            recur(min, max, mid(min, max), direction = 1)
+
+              println(
+                s"$name v=$v ${spire.math.prime.factor(v.toBigInt)} lcm=$lcm lcmR=$lcmR tx(0)=${tx(0)} tx(1)=${tx(1)} tx(2)=${tx(2)}",
+              )
+
+              None
           }
-
-          def binSearchBD(
-            min: BigDecimal,
-            max: BigDecimal,
-            test: BigDecimal => TestResult,
-          ): Either[BigDecimal, BigDecimal] =
-            binSearch(min.toBigInt, max.toBigInt, t => test(BigDecimal(t))).bimap(BigDecimal.apply, BigDecimal.apply)
-
-          // NOTE: May yield multiple 0, for example on "sample" X axis both 28 and 32 work
-          def test(ps: BigDecimal): TestResult = {
-            def intersections = LazyList.from(input.hail).map { s =>
-              val dv = v - vel(s)
-              if (dv == 0) {
-                val res =
-                  if (ps < ord(s)) TestResult.TooLow
-                  else if (ps == ord(s)) TestResult.Match
-                  else TestResult.TooHigh
-                // println(
-                //   s"$name test($ps, $v, ${ord(s)}, ${vel(s)})=$res",
-                // )
-                res
-              } else {
-                val t          = (ord(s) - ps) / dv
-                val tInt       = BigDecimal(t.toBigInt)
-                val x          = ord(s) + vel(s) * t
-                val xTInt      = ord(s) + vel(s) * tInt
-                val xStone     = ps + v * t
-                val xStoneTInt = ps + v * tInt
-
-                val res =
-                  if (t < 1) if (dv > 0) TestResult.TooHigh else TestResult.TooLow
-                  else if (t == tInt && x == xStone) TestResult.Match
-                  else if (x < 0) {
-                    if (vel(s) < 0) if (dv < 0) TestResult.TooHigh else TestResult.TooLow
-                    else if (dv < 0) TestResult.TooLow else TestResult.TooHigh
-                  }
-                  else if (hailAboveAtT0(s) && xTInt < xStoneTInt) TestResult.TooHigh
-                  else if (hailBelowAtT0(s) && xTInt > xStoneTInt) TestResult.TooLow
-                  else TestResult.Inconclusive
-                println(
-                  s"$name test($ps, $v, ${ord(s)}, ${vel(s)})=$res: t=$t ($tInt) x=$x ($xTInt) xStone=$xStone ($xStoneTInt) hailAboveAtT0(s)=${hailAboveAtT0(s)}",
-                )
-                res
-              }
-            }
-            type Foo[A] = Either[TestResult, A]
-            val res = intersections
-              .foldLeftM[Foo, TestResult](TestResult.Match) {
-                case (_, r @ (TestResult.TooLow | TestResult.TooHigh)) => r.asLeft
-                case (TestResult.Inconclusive, TestResult.Match)       => TestResult.Inconclusive.asRight
-                case (_, r)                                            => r.asRight
-              }
-              .merge
-            println(s"$name test($ps, $v)=$res")
-            res
-          }
-
-          val huh = binSearchBD(input.testArea.min, input.testArea.max, test)
-          // val huh = binSearchBD(hailBelowAtT0.maxByOption(ord).map(ord).getOrElse(0), test)
-          // val huh = binSearchBD(0, test)
-          println(s"$name: huh(v=$v)=$huh")
-
-          huh.toOption
         }
     }
 
@@ -265,7 +187,7 @@ object Day24 extends util.AocApp(2023, 24) {
     val result = (x, y, z)
       .mapN(_ + _ + _)
       .tapEach(println)
-      .head
+      .headOption
 
     // assert(result > 625890197021615L, s"FALSE: $result > 625890197021615L")
     s"$result"
@@ -276,5 +198,18 @@ object Day24 extends util.AocApp(2023, 24) {
     val xxx = factors.toList
       .flatMap((f, n) => List.fill(n)(f.toBigDecimal))
     BigDecimal(1) :: List.range(1, xxx.size + 1).flatMap(n => xxx.combinations(n).map(_.product))
+  }
+
+  private def lcmWithRemainders(dr1: (SafeLong, SafeLong), dr2: (SafeLong, SafeLong)): SafeLong = {
+    val (d1, r1) = dr1
+    val (d2, r2) = dr2
+    // https://wordpandit.com/application-of-lcm-hcf/
+    // N = d * q + r
+    // N = d1 * a + r1 = d2 * b + r2
+    // (d1 * a + r1) % N = r2
+    // (d1 * a + r1 - r2) % d2 = 0
+    val a = LazyList.from(1).dropWhile(a => (d1 * a + r1 - r2) % d2 != 0).head
+    val n = d1 * a + r1
+    spire.math.lcm(d1, d1) + n
   }
 }
