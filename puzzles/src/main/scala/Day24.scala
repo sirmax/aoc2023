@@ -128,7 +128,7 @@ object Day24 extends util.AocApp(2023, 24) {
           // dv == 0 -- exact match
 
           val pvsAdjusted = pvs.map(pv => pv.copy(v = pv.v - v))
-          println(s"$name v=$v pvsAdjusted=$pvsAdjusted")
+          println(s"$name v=$v pvsAdjusted=$pvsAdjusted pvs=$pvs")
 
           val sameVelocity = pvsAdjusted.collectFirstSome(_.some.filter(_.v == 0))
 
@@ -151,12 +151,34 @@ object Day24 extends util.AocApp(2023, 24) {
               Option.when(allInExpectedBounds)(pv.p)
 
             case None =>
-              val pvCommon = pvsAdjusted.map(_.some).reduce((pv1, pv2) => (pv1, pv2).flatMapN(combine))
+              val pvCommon =
+                pvsAdjusted.sortBy(pv => pv.p % pv.v).map(_.some).reduce((pv1, pv2) => (pv1, pv2).flatMapN(combine))
 
-              val pv = pvCommon.map { pvCommon =>
-                val p = ((pvsAdjusted.map(pv => pv.p + 1 * pv.v).max - pvCommon.p) / pvCommon.v) * pvCommon.v
-                PV(p, v)
-              }
+              val pv = pvCommon
+                .flatMap { pvCommon =>
+                  val (rising, falling) = pvsAdjusted.partition(_.v > 0)
+                  val pMin              = rising.map(pv => pv.p + pv.v).maxOption
+                  val pMax              = falling.map(pv => pv.p + pv.v).minOption
+
+                  // This "filter" does not take the negative collision ordinates into account,
+                  // but it's good enough for solving the main task, which has no alternative
+                  // velocities.
+                  val p = (pMin, pMax) match {
+                    case (min, Some(max)) =>
+                      val p = ((max - pvCommon.p) / pvCommon.v) * pvCommon.v + pvCommon.p
+                      if (min.forall(_ <= p)) p.some else None
+
+                    case (Some(min), None) =>
+                      val (n, rem) = (min - pvCommon.p) /% pvCommon.v
+                      if (rem == 0) min.some else (n * pvCommon.v.abs + pvCommon.p).some
+
+                    case (None, None) =>
+                      None
+                  }
+                  println(s"pMin=$pMin pMax=$pMax pvCommon=$pvCommon p=$p")
+                  p.map(PV(_, v))
+                }
+                .filter(_.p > 0)
               println(s"$name v=$v pv=$pv pvCommon=$pvCommon")
               pv.map(_.p)
           }
@@ -192,7 +214,7 @@ object Day24 extends util.AocApp(2023, 24) {
     */
   private def combine(pv1: PV, pv2: PV): Option[PV] = {
     val res = _combine(pv1, pv2)
-    // println(s"combine($pv1, $pv2) = $res")
+    println(s"combine($pv1, $pv2) = $res")
     res
   }
 
@@ -202,13 +224,17 @@ object Day24 extends util.AocApp(2023, 24) {
 
     if (r1 == r2) {
       PV(r1, pv1.v lcm pv2.v).some
-    } else if (pv1.v % pv2.v != 0 && pv2.v % pv2.v != 0) { // this condition is too restrictive !!!
+    } else { // this condition is too restrictive !!!
       // N == pv1.v * k + pv1.p == pv2.v * m + pv2.p
       // pv1.v * k + pv1.p - pv2.p == pv2.v * m
       // (pv1.v * k + pv1.p - pv2.p) % pv2.v == 0
-      val N = LazyList.from(1).map(pv1.v * _ + pv1.p).find(n => (n - pv2.p) % pv2.v == 0).get
-      PV(p = N, v = pv1.v lcm pv2.v).some
-    } else None
+      LazyList
+        .from(1)
+        .map(pv1.v * _ + pv1.p)
+        .take(10_000_000)
+        .find(n => (n - pv2.p) % pv2.v == 0)
+        .map(N => PV(p = N, v = pv1.v lcm pv2.v))
+    }
   }
 
   private case class PV(p: SafeLong, v: SafeLong)
