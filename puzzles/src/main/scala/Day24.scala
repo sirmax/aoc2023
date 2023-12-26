@@ -156,23 +156,46 @@ object Day24 extends util.AocApp(2023, 24) {
               val lcmR =
                 pvsAdjusted.map(pv => (pv.v, pv.p % pv.v)).reduce((dr1, dr2) => (lcmWithRemainders(dr1, dr1), 0))
 
-              val (p, _) = lcmR
+              // val (p, _) = lcmR
 
-              def tx(i: Int) = {
-                val pv0 = PV(p + i * lcm, v)
+              // x = p + v*t
+              // p + v*t = pv.p + pv.v*t
+              // t = (p - pv.p) / (pv.v - v); t > 0
+              // (p - pv.p) / (pv.v - v) > 0
+              // (p - pv.p) * (pv.v - v).sign > (pv.v - v).abs
+              // p*(pv.v - v).sigh - pv.p*(pv.v - v).sign > (pv.v - v).abs
+              // p*(pv.v - v).sign > (pv.v - v).abs + pv.p*(pv.v - v).sign
 
-                pvs.map { pv =>
+              val p = LazyList.iterate(lcmR._1)(_ + lcm).take(1_000).find { p =>
+                val pv0 = PV(p, v)
+
+                pvs.forall { pv =>
                   val t = (pv0.p - pv.p) / (pv.v - pv0.v)
-                  def x = pv.p + t * pv.v
-                  (t, x)
+
+                  def inFuture = t > 0
+
+                  def xPositive = pv.p + t * pv.v > 0
+
+                  inFuture && xPositive
                 }
               }
 
+              // def tx(i: Int) = {
+              //   val pv0 = PV(p + i * lcm, v)
+              //
+              //   pvs.map { pv =>
+              //     val t = (pv0.p - pv.p) / (pv.v - pv0.v)
+              //     def x = pv.p + t * pv.v
+              //     (t, x)
+              //   }
+              // }
+
               println(
-                s"$name v=$v ${spire.math.prime.factor(v.toBigInt)} lcm=$lcm lcmR=$lcmR tx(0)=${tx(0)} tx(1)=${tx(1)} tx(2)=${tx(2)}",
+                s"$name v=$v ${spire.math.prime
+                    .factor(v.toBigInt)} lcm=$lcm lcmR=$lcmR p=$p}",
               )
 
-              None
+              p
           }
         }
     }
