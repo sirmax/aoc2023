@@ -4,7 +4,7 @@ import cats.syntax.all.*
 import kyo.>
 import kyo.apps.App.Effects
 import kyo.tries.Tries
-import spire.math.SafeLong
+import spire.math.{SafeLong, lcm}
 import spire.syntax.all.*
 
 import java.math.MathContext
@@ -154,7 +154,7 @@ object Day24 extends util.AocApp(2023, 24) {
             case None =>
               val lcm = pvsAdjusted.map(_.v).reduce(spire.math.lcm)
               val lcmR =
-                pvsAdjusted.map(pv => (pv.v, pv.p % pv.v)).reduce((dr1, dr2) => (lcmWithRemainders(dr1, dr1), 0))
+                pvsAdjusted.map(pv => (pv.v, pv.p % pv.v)).reduce((dr1, dr2) => lcmWithRemainders(dr1, dr2))
 
               // val (p, _) = lcmR
 
@@ -166,7 +166,7 @@ object Day24 extends util.AocApp(2023, 24) {
               // p*(pv.v - v).sigh - pv.p*(pv.v - v).sign > (pv.v - v).abs
               // p*(pv.v - v).sign > (pv.v - v).abs + pv.p*(pv.v - v).sign
 
-              val p = LazyList.iterate(lcmR._1)(_ + lcm).take(1_000).find { p =>
+              val p = LazyList.iterate(lcmR._1 + lcmR._2)(_ + lcm).take(1_000).find { p =>
                 val pv0 = PV(p, v)
 
                 pvs.forall { pv =>
@@ -223,16 +223,27 @@ object Day24 extends util.AocApp(2023, 24) {
     BigDecimal(1) :: List.range(1, xxx.size + 1).flatMap(n => xxx.combinations(n).map(_.product))
   }
 
-  private def lcmWithRemainders(dr1: (SafeLong, SafeLong), dr2: (SafeLong, SafeLong)): SafeLong = {
+  private def lcmWithRemainders(dr1: (SafeLong, SafeLong), dr2: (SafeLong, SafeLong)): (SafeLong, SafeLong) = {
     val (d1, r1) = dr1
     val (d2, r2) = dr2
-    // https://wordpandit.com/application-of-lcm-hcf/
-    // N = d * q + r
-    // N = d1 * a + r1 = d2 * b + r2
-    // (d1 * a + r1) % N = r2
-    // (d1 * a + r1 - r2) % d2 = 0
-    val a = LazyList.from(1).dropWhile(a => (d1 * a + r1 - r2) % d2 != 0).head
-    val n = d1 * a + r1
-    spire.math.lcm(d1, d1) + n
+
+    val result = if (r1 == 0 && r2 == 0) {
+      (spire.math.lcm(d1, d2), 0.toSafeLong)
+    } else if (r1 == 0) {
+      lcmWithRemainders(dr2, dr1)
+    } else {
+      // https://wordpandit.com/application-of-lcm-hcf/
+      // N = d * q + r
+      // N = d1 * a + r1 = d2 * b + r2
+      // (d1 * a + r1) % N = r2
+      // (d1 * a + r1 - r2) % d2 = 0
+      println(s"lcmWithRemainders($dr1, $dr2)=… ($d1 * a + ${r1 - r2}) % $d2")// a=$a n=$n")
+      val a = LazyList.from(1).dropWhile(a => (d1 * a + r1 - r2) % d2 != 0).head.toSafeLong
+      val n = d1 * a + r1
+      ///
+      (spire.math.lcm(d1, d1), n)
+    }
+    println(s"lcmWithRemainders($dr1, $dr2)=$result")// a=$a n=$n")
+    result
   }
 }
