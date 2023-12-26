@@ -113,7 +113,6 @@ object Day24 extends util.AocApp(2023, 24) {
       // x*vel(s) - p*vel(s) = x*v - ord(s)*v
       // x*(vel(s) - v) - p*vel(s) + ord(s)*v = 0
 
-      case class PV(p: SafeLong, v: SafeLong)
       val pvs = input.hail.map(s => PV(p = ord(s).toBigInt, v = vel(s).toBigInt))
 
       def ordsT(t: Int) = LazyList.from(input.hail).map(s => ord(s) + t * vel(s))
@@ -152,50 +151,14 @@ object Day24 extends util.AocApp(2023, 24) {
               Option.when(allInExpectedBounds)(pv.p)
 
             case None =>
-              val lcm = pvsAdjusted.map(_.v).reduce(spire.math.lcm)
-              val lcmR =
-                pvsAdjusted.map(pv => (pv.v, pv.p % pv.v)).reduce((dr1, dr2) => lcmWithRemainders(dr1, dr2))
+              val pvCommon = pvsAdjusted.map(_.some).reduce((pv1, pv2) => (pv1, pv2).flatMapN(combine))
 
-              // val (p, _) = lcmR
-
-              // x = p + v*t
-              // p + v*t = pv.p + pv.v*t
-              // t = (p - pv.p) / (pv.v - v); t > 0
-              // (p - pv.p) / (pv.v - v) > 0
-              // (p - pv.p) * (pv.v - v).sign > (pv.v - v).abs
-              // p*(pv.v - v).sigh - pv.p*(pv.v - v).sign > (pv.v - v).abs
-              // p*(pv.v - v).sign > (pv.v - v).abs + pv.p*(pv.v - v).sign
-
-              val p = LazyList.iterate(lcmR._1 + lcmR._2)(_ + lcm).take(1_000).find { p =>
-                val pv0 = PV(p, v)
-
-                pvs.forall { pv =>
-                  val t = (pv0.p - pv.p) / (pv.v - pv0.v)
-
-                  def inFuture = t > 0
-
-                  def xPositive = pv.p + t * pv.v > 0
-
-                  inFuture && xPositive
-                }
+              val pv = pvCommon.map { pvCommon =>
+                val p = ((pvsAdjusted.map(pv => pv.p + 1 * pv.v).max - pvCommon.p) / pvCommon.v) * pvCommon.v
+                PV(p, v)
               }
-
-              // def tx(i: Int) = {
-              //   val pv0 = PV(p + i * lcm, v)
-              //
-              //   pvs.map { pv =>
-              //     val t = (pv0.p - pv.p) / (pv.v - pv0.v)
-              //     def x = pv.p + t * pv.v
-              //     (t, x)
-              //   }
-              // }
-
-              println(
-                s"$name v=$v ${spire.math.prime
-                    .factor(v.toBigInt)} lcm=$lcm lcmR=$lcmR p=$p}",
-              )
-
-              p
+              println(s"$name v=$v pv=$pv pvCommon=$pvCommon")
+              pv.map(_.p)
           }
         }
     }
@@ -223,27 +186,30 @@ object Day24 extends util.AocApp(2023, 24) {
     BigDecimal(1) :: List.range(1, xxx.size + 1).flatMap(n => xxx.combinations(n).map(_.product))
   }
 
-  private def lcmWithRemainders(dr1: (SafeLong, SafeLong), dr2: (SafeLong, SafeLong)): (SafeLong, SafeLong) = {
-    val (d1, r1) = dr1
-    val (d2, r2) = dr2
-
-    val result = if (r1 == 0 && r2 == 0) {
-      (spire.math.lcm(d1, d2), 0.toSafeLong)
-    } else if (r1 == 0) {
-      lcmWithRemainders(dr2, dr1)
-    } else {
-      // https://wordpandit.com/application-of-lcm-hcf/
-      // N = d * q + r
-      // N = d1 * a + r1 = d2 * b + r2
-      // (d1 * a + r1) % N = r2
-      // (d1 * a + r1 - r2) % d2 = 0
-      println(s"lcmWithRemainders($dr1, $dr2)=… ($d1 * a + ${r1 - r2}) % $d2")// a=$a n=$n")
-      val a = LazyList.from(1).dropWhile(a => (d1 * a + r1 - r2) % d2 != 0).head.toSafeLong
-      val n = d1 * a + r1
-      ///
-      (spire.math.lcm(d1, d1), n)
-    }
-    println(s"lcmWithRemainders($dr1, $dr2)=$result")// a=$a n=$n")
-    result
+  /** I don't have a better name for it at the moment.
+    * It takes two lines (in `PV` form) and, if that is possible, returns another line,
+    * that has integer (t, x) where both lines have integer (t, x).
+    */
+  private def combine(pv1: PV, pv2: PV): Option[PV] = {
+    val res = _combine(pv1, pv2)
+    // println(s"combine($pv1, $pv2) = $res")
+    res
   }
+
+  private def _combine(pv1: PV, pv2: PV): Option[PV] = {
+    val r1 = pv1.p % pv1.v
+    val r2 = pv2.p % pv2.v
+
+    if (r1 == r2) {
+      PV(r1, pv1.v lcm pv2.v).some
+    } else if (pv1.v % pv2.v != 0 && pv2.v % pv2.v != 0) { // this condition is too restrictive !!!
+      // N == pv1.v * k + pv1.p == pv2.v * m + pv2.p
+      // pv1.v * k + pv1.p - pv2.p == pv2.v * m
+      // (pv1.v * k + pv1.p - pv2.p) % pv2.v == 0
+      val N = LazyList.from(1).map(pv1.v * _ + pv1.p).find(n => (n - pv2.p) % pv2.v == 0).get
+      PV(p = N, v = pv1.v lcm pv2.v).some
+    } else None
+  }
+
+  private case class PV(p: SafeLong, v: SafeLong)
 }
